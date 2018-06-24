@@ -1,4 +1,4 @@
-package main.extractor;
+package extractor;
 
 import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.ast.expr.SimpleName;

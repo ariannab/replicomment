@@ -1,4 +1,4 @@
-package main.extractor;
+package extractor;
 
 import java.util.Objects;
 import java.util.StringJoiner;

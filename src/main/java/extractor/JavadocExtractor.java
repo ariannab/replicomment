@@ -1,11 +1,10 @@
-package main.extractor;
+package extractor;
 
 import static java.util.stream.Collectors.toList;
-import static main.extractor.DocumentedExecutable.*;
+import static extractor.DocumentedExecutable.*;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.*;
@@ -21,13 +20,10 @@ import java.lang.reflect.Executable;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.util.*;
-import java.util.Map.Entry;
 import java.util.function.Predicate;
 
 import main.util.Reflection;
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.reflections.Reflections;
-import org.reflections.scanners.SubTypesScanner;
 
 /**
  * {@code JavadocExtractor} extracts {@code DocumentedExecutable}s from a Java class by means of

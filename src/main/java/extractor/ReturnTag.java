@@ -1,4 +1,4 @@
-package main.extractor;
+package extractor;
 
 /**
  * Represents a Javadoc @return comment. Each {@link ReturnTag} consists of a comment and a

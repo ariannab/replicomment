@@ -1,4 +1,4 @@
-package main.extractor;
+package extractor;
 
 import java.util.*;
 import java.util.regex.Matcher;
