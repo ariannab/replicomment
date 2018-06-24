@@ -1,8 +1,9 @@
-package extractor;
+package org.replicomment.extractor;
+
+import org.replicomment.util.Checks;
 
 import java.util.List;
 import java.util.Objects;
-import util.Checks;
 
 /** Represents a class or interface that is documented with Javadoc comments. */
 public final class DocumentedType {

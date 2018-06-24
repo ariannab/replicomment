@@ -1,4 +1,4 @@
-package extractor;
+package org.replicomment.extractor;
 
 /**
  * Represents a Javadoc @param comment. Each {@code ParamTag} consists of the name of the parameter,

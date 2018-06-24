@@ -1,4 +1,4 @@
-package extractor;
+package org.replicomment.extractor;
 
 /**
  * Represents Javadoc @throws and @exception comments. Each {@link ThrowsTag} consists of a comment,

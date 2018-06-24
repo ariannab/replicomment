@@ -1,4 +1,6 @@
-import extractor.*;
+package org.replicomment;
+
+import org.replicomment.extractor.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.RegexFileFilter;
 import org.apache.commons.io.filefilter.TrueFileFilter;
@@ -14,35 +16,39 @@ public class JavadocClonesFinder {
     public static void main(String[] args) throws IOException, ClassNotFoundException {
         final JavadocExtractor javadocExtractor = new JavadocExtractor();
         List<String> sourceFolders = FileUtils.readLines(new File(
-                JavadocClonesFinder.class.getResource("projects.txt").getPath()));
+                JavadocClonesFinder.class.getResource("/sources.txt").getPath()));
 
         int count = 0;
         for(String sourceFolder : sourceFolders){
-            FileWriter writer = new FileWriter("Javadoc_clones_"+count+++".csv");
-            writer.append("Class");
-            writer.append(';');
-            writer.append("Method1");
-            writer.append(';');
-            writer.append("Method2");
-            writer.append(';');
-            writer.append("Type");
-            writer.append(';');
-            writer.append("Cloned text");
-            writer.append(';');
-            writer.append("Legit?");
-            writer.append('\n');
-
             //Collect all sources
-            Collection<File> list = FileUtils.listFiles(
-                    new File(
-                            sourceFolder),
-                    new RegexFileFilter("(.*).java"),
-                    TrueFileFilter.INSTANCE);
+            try {
+                Collection<File> list = FileUtils.listFiles(
+                        new File(
+                                sourceFolder),
+                        new RegexFileFilter("(.*).java"),
+                        TrueFileFilter.INSTANCE);
+                String[] selectedClassNames  = getClassesInFolder(list, sourceFolder);
+                FileWriter writer = new FileWriter("Javadoc_clones_"+count+++".csv");
+                writer.append("Class");
+                writer.append(';');
+                writer.append("Method1");
+                writer.append(';');
+                writer.append("Method2");
+                writer.append(';');
+                writer.append("Type");
+                writer.append(';');
+                writer.append("Cloned text");
+                writer.append(';');
+                writer.append("Legit?");
+                writer.append('\n');
+                System.out.println("[INFO] Analyzing "+sourceFolder+" ...");
+                analyzeClones(writer, javadocExtractor, sourceFolder, selectedClassNames);
 
-            String[] selectedClassNames  = getClassesInFolder(list, sourceFolder);
-            analyzeClones(writer, javadocExtractor, sourceFolder, selectedClassNames);
-            writer.flush();
-            writer.close();
+                writer.flush();
+                writer.close();
+            }catch(java.lang.IllegalArgumentException exception){
+                System.out.println("[ERROR] Are you sure about this path? "+sourceFolder);
+            }
         }
 
     }
@@ -64,13 +70,12 @@ public class JavadocClonesFinder {
                         className, sourcesFolder);
 
                 if (documentedType != null) {
-                    System.out.println("\nIn class " + className + ":");
+//                    System.out.println("\nIn class " + className + ":");
                     List<DocumentedExecutable> executables = documentedType.getDocumentedExecutables();
                     for (int i = 0; i < executables.size(); i++) {
                         DocumentedExecutable first = executables.get(i);
                         for (int j = i + 1; j < executables.size(); j++) {
                             DocumentedExecutable second = executables.get(j);
-
 
                             boolean legit = isCloneLegit(first.getName(), second.getName());
 
@@ -78,8 +83,8 @@ public class JavadocClonesFinder {
                                 String cleanFirst = first.getJavadocFreeText().trim().replaceAll("\n ", "");
                                 String cleanSecond = second.getJavadocFreeText().trim().replaceAll("\n ", "");
                                 if (cleanFirst.equals(cleanSecond)) {
-                                    System.out.println("\nFree text clone: " + first.getJavadocFreeText() + "\n" +
-                                            " among " + first.getSignature() + " \nand " + second.getSignature());
+//                                    System.out.println("\nFree text clone: " + first.getJavadocFreeText() + "\n" +
+//                                            " among " + first.getSignature() + " \nand " + second.getSignature());
 
                                     writer.append(className);
                                     writer.append(';');
@@ -100,8 +105,8 @@ public class JavadocClonesFinder {
                                 if (!cleanFirst.isEmpty()) {
                                     String cleanSecond = second.returnTag().getComment().getText().trim().replaceAll("\n ", "");
                                     if (cleanFirst.equals(cleanSecond)) {
-                                        System.out.println("\n@return tag clone: " + first.returnTag().getComment().getText() + "\n" +
-                                                " among " + first.getSignature() + " \nand " + second.getSignature());
+//                                        System.out.println("\n@return tag clone: " + first.returnTag().getComment().getText() + "\n" +
+//                                                " among " + first.getSignature() + " \nand " + second.getSignature());
 
                                         writer.append(className);
                                         writer.append(';');
@@ -124,8 +129,8 @@ public class JavadocClonesFinder {
                                     for (ParamTag secParamTag : second.paramTags()) {
                                             String cleanSecond = secParamTag.getComment().getText().trim().replaceAll("\n ", "");
                                             if (cleanFirst.equals(cleanSecond)) {
-                                                System.out.println("\n@param tag clone: " + firstParamTag.getComment().getText() + "\n" +
-                                                        " among " + first.getSignature() + " \nand " + second.getSignature());
+//                                                System.out.println("\n@param tag clone: " + firstParamTag.getComment().getText() + "\n" +
+//                                                        " among " + first.getSignature() + " \nand " + second.getSignature());
                                                 writer.append(className);
                                                 writer.append(';');
                                                 writer.append(first.getSignature());
@@ -150,8 +155,8 @@ public class JavadocClonesFinder {
                                     for (ThrowsTag secThrowTag : second.throwsTags()) {
                                         String cleanSecond = secThrowTag.getComment().getText().trim().replaceAll("\n ", "");
                                         if (cleanFirst.equals(cleanSecond)) {
-                                            System.out.println("\n@throws tag clone: " + firstThrowTag.getComment().getText() + "\n" +
-                                                    " among " + first.getSignature() + " \nand " + second.getSignature());
+//                                            System.out.println("\n@throws tag clone: " + firstThrowTag.getComment().getText() + "\n" +
+//                                                    " among " + first.getSignature() + " \nand " + second.getSignature());
                                             writer.append(className);
                                             writer.append(';');
                                             writer.append(first.getSignature());

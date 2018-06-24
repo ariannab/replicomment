@@ -1,6 +1,6 @@
-package extractor;
+package org.replicomment.extractor;
 
-import util.Checks;
+import org.replicomment.util.Checks;
 
 import java.util.Objects;
 

@@ -1,29 +1,37 @@
-package extractor;
-
-import static java.util.stream.Collectors.toList;
-import static extractor.DocumentedExecutable.*;
+package org.replicomment.extractor;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
-import com.github.javaparser.ast.body.*;
+import com.github.javaparser.ast.body.BodyDeclaration;
+import com.github.javaparser.ast.body.CallableDeclaration;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.ConstructorDeclaration;
+import com.github.javaparser.ast.body.EnumDeclaration;
 import com.github.javaparser.ast.comments.JavadocComment;
 import com.github.javaparser.ast.nodeTypes.modifiers.NodeWithPrivateModifier;
 import com.github.javaparser.javadoc.Javadoc;
 import com.github.javaparser.javadoc.JavadocBlockTag;
 import com.github.javaparser.javadoc.JavadocBlockTag.Type;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.replicomment.util.Reflection;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
 
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import util.Reflection;
+import static org.replicomment.extractor.DocumentedExecutable.BlockTags;
+import static java.util.stream.Collectors.toList;
 
 /**
  * {@code JavadocExtractor} extracts {@code DocumentedExecutable}s from a Java class by means of
@@ -327,7 +335,7 @@ public final class JavadocExtractor {
    * Instantiate the {@code DocumentedParameter} according to the list of source parameters.
    *
    * @param sourceParams the {@code NodeList} of parameters found in source
-   * @return the list of {@code org.toradocu.main.extractor.DocumentedParameter}
+   * @return the list of {@code org.toradocu.main.org.replicomment.extractor.DocumentedParameter}
    */
   private List<DocumentedParameter> createDocumentedParameters(
       NodeList<com.github.javaparser.ast.body.Parameter> sourceParams) {
@@ -518,7 +526,7 @@ public final class JavadocExtractor {
    * @return true if the param types are the same, false otherwise
    */
   private boolean sameParamTypes(
-      java.lang.reflect.Parameter[] reflectionParams,
+      Parameter[] reflectionParams,
       NodeList<com.github.javaparser.ast.body.Parameter> sourceParams) {
     if (reflectionParams.length != sourceParams.size()) {
       return false;

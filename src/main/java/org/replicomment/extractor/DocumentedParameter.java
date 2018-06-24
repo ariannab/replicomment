@@ -1,9 +1,10 @@
-package extractor;
+package org.replicomment.extractor;
+
+import org.replicomment.util.Checks;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import util.Checks;
 
 /** This class represents a method parameter. */
 public final class DocumentedParameter {

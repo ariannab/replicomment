@@ -1,5 +1,10 @@
-package util;
+package org.replicomment.util;
 
+import org.apache.commons.io.FileUtils;
+import org.replicomment.JavadocClonesFinder;
+
+import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -42,23 +47,17 @@ public class Reflection {
       return primitiveClasses.get(className);
     }
 
-    // The order here is important. We have to first look in the paths specified by the user and
-    // then in the default class path. The default classpath contains the dependencies of Toradocu
-    // that could clash with the system under analysis.
     final List<URL> urls = new ArrayList<>();
     try {
-      urls.add(new URL("file:/home/arianna/comment-clones/javadoclones/src/resources/bin/junit-4.12.jar"));
-      urls.add(new URL("file:/home/arianna/comment-clones/javadoclones/src/resources/bin/lucene-core-7.2.1.jar"));
-      urls.add(new URL("file:/home/arianna/comment-clones/javadoclones/src/resources/bin/solr-solrj-7.1.0.jar"));
-      urls.add(new URL("file:/home/arianna/comment-clones/javadoclones/src/resources/bin/guava-19.0.jar"));
-      urls.add(new URL("file:/home/arianna/comment-clones/javadoclones/src/resources/bin/hadoop-hdfs-2.6.5.jar"));
-      urls.add(new URL("file:/home/arianna/comment-clones/javadoclones/src/resources/bin/hadoop-common-2.6.5.jar"));
-      urls.add(new URL("file:/home/arianna/comment-clones/javadoclones/src/resources/bin/vertx-core-3.5.0.jar"));
-      urls.add(new URL("file:/home/arianna/comment-clones/javadoclones/src/resources/bin/elasticsearch-6.1.1.jar"));
-      urls.add(new URL("file:/home/arianna/comment-clones/javadoclones/src/resources/bin/spring-core-5.0.2.jar"));
-      urls.add(new URL("file:/home/arianna/comment-clones/javadoclones/src/resources/bin/log4j-1.2.17.jar"));
-      urls.add(new URL("file:/home/arianna/comment-clones/javadoclones/src/resources/bin/rxjava-1.3.5.jar"));
+      List<String> jars = FileUtils.readLines(new File(
+              JavadocClonesFinder.class
+                      .getResource("/jars.txt").getPath()));
+      for(String jar : jars){
+        urls.add(new URL("file:"+jar));
+      }
     } catch (MalformedURLException e) {
+    } catch (IOException e) {
+      e.printStackTrace();
     }
     final URLClassLoader loader = new URLClassLoader(urls.toArray(new URL[urls.size()]), null);
     try {

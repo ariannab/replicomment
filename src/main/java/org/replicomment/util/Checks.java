@@ -1,4 +1,4 @@
-package util;
+package org.replicomment.util;
 
 import java.util.Objects;
 
