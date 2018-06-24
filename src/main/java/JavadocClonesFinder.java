@@ -13,24 +13,12 @@ public class JavadocClonesFinder {
 
     public static void main(String[] args) throws IOException, ClassNotFoundException {
         final JavadocExtractor javadocExtractor = new JavadocExtractor();
-        //TODO fix hardcoded paths
-        String[] sourceFolders = {
-//                "/home/arianna/comment-clones/javadoclones/src/resources/src/rxjava-1.3.5-sources/",
-//                "/home/arianna/comment-clones/javadoclones/src/resources/src/hadoop-2.6.5-src/"+
-//                        "hadoop-common-project/hadoop-common/src/main/java/",
-//                "/home/arianna/comment-clones/javadoclones/src/resources/src/lucene-core-7.2.1-sources/",
-//                "/home/arianna/comment-clones/javadoclones/src/resources/src/solr-7.1.0-sources/",
-//                "/home/arianna/comment-clones/javadoclones/src/resources/src/guava-19.0-sources/",
-//                "/home/arianna/comment-clones/javadoclones/src/resources/src/hadoop-2.6.5-src/" +
-//                "hadoop-hdfs-project/hadoop-hdfs/src/main/java/",
-//                "/home/arianna/comment-clones/javadoclones/src/resources/src/vertx-core-3.5.0/",
-                "/home/arianna/comment-clones/javadoclones/src/resources/src/elasticsearch-6.1.1/"
-//                "/home/arianna/comment-clones/javadoclones/src/resources/src/spring-core-5.0.2/",
-//                "/home/arianna/comment-clones/javadoclones/src/resources/src/log4j-1.2.17/"
- };
+        List<String> sourceFolders = FileUtils.readLines(new File(
+                JavadocClonesFinder.class.getResource("projects.txt").getPath()));
 
-        for(int i=0; i<sourceFolders.length; i++){
-            FileWriter writer = new FileWriter("Javadoc_clones_"+i+".csv");
+        int count = 0;
+        for(String sourceFolder : sourceFolders){
+            FileWriter writer = new FileWriter("Javadoc_clones_"+count+++".csv");
             writer.append("Class");
             writer.append(';');
             writer.append("Method1");
@@ -47,12 +35,12 @@ public class JavadocClonesFinder {
             //Collect all sources
             Collection<File> list = FileUtils.listFiles(
                     new File(
-                            sourceFolders[i]),
+                            sourceFolder),
                     new RegexFileFilter("(.*).java"),
                     TrueFileFilter.INSTANCE);
 
-            String[] selectedClassNames  = getClassesInFolder(list, sourceFolders[i]);
-            analyzeClones(writer, javadocExtractor, sourceFolders[i], selectedClassNames);
+            String[] selectedClassNames  = getClassesInFolder(list, sourceFolder);
+            analyzeClones(writer, javadocExtractor, sourceFolder, selectedClassNames);
             writer.flush();
             writer.close();
         }

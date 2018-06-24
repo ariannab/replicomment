@@ -22,8 +22,8 @@ import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.function.Predicate;
 
-import main.util.Reflection;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import util.Reflection;
 
 /**
  * {@code JavadocExtractor} extracts {@code DocumentedExecutable}s from a Java class by means of
@@ -57,7 +57,6 @@ public final class JavadocExtractor {
     } catch (Throwable e) {
       return null;
     }
-//    final List<Executable> reflectionExecutables = getExecutables(clazz);
 
     // Obtain executable members (constructors and methods) in the source code.
     final ImmutablePair<String, String> fileNameAndSimpleName =
@@ -69,10 +68,6 @@ public final class JavadocExtractor {
     final List<CallableDeclaration<?>> sourceExecutables = getExecutables(simpleName, sourceFile);
 
     if(!sourceExecutables.isEmpty()) {
-      // Maps each reflection executable member to its corresponding source executable member.
-//    Map<Executable, CallableDeclaration<?>> executablesMap =
-//        mapExecutables(reflectionExecutables, sourceExecutables, className);
-
       // Create the list of ExecutableMembers.
       List<String> classesInPackage = getClassesInSamePackage(className, sourceFile);
       List<DocumentedExecutable> documentedExecutables =
@@ -81,7 +76,6 @@ public final class JavadocExtractor {
         final List<DocumentedParameter> parameters =
                 createDocumentedParameters(
                         sourceCallable.getParameters());
-//      final String qualifiedClassName = reflectionMember.getDeclaringClass().getName();
         BlockTags blockTags =
                 null;
         try {
@@ -95,7 +89,6 @@ public final class JavadocExtractor {
         String freeText = "";
         String parsedFreeText = "";
         if (javadocComment.isPresent()) {
-//        freeText = String.valueOf(javadocComment.get());
           freeText = javadocComment.get().getContent();
           String[] freeTextLines = freeText.split("\n");
           for (String line : freeTextLines) {
@@ -195,7 +188,6 @@ public final class JavadocExtractor {
    * @param classesInPackage list of class names in sourceCallable's package
    * @param callableMember the callable member the tags refer to
    * @param parameters {@code sourceCallable}'s parameters
-//   * @param className qualified name of the class defining {@code sourceCallable}
    * @return a triple of created tags: list of @param tags, return tag, list of @throws tags
    * @throws ClassNotFoundException if a type described in a Javadoc comment cannot be loaded (e.g.,
    *     the type is not on the classpath)
@@ -244,7 +236,6 @@ public final class JavadocExtractor {
    * @param classesInPackage list of class names in sourceCallable's package
    * @param blockTag the @throws or @exception Javadoc block comment containing the tag
    * @param sourceCallable the source callable the tag refers to
-//   * @param className qualified name of the class defining {@code sourceCallable}
    * @return the created tag
    * @throws ClassNotFoundException if the class of the exception type couldn't be found
    */
@@ -471,52 +462,6 @@ public final class JavadocExtractor {
         "Impossible to find a class or interface with name " + className + " in " + sourcePath);
   }
 
-//  /**
-//   * Maps reflection executable members to source code executable members.
-//   *
-//   * @param reflectionExecutables the list of reflection members
-//   * @param sourceExecutables the list of source code members
-//   * @param className name of the class containing the executables
-//   * @return a map holding the correspondences
-//   */
-//  private Map<Executable, CallableDeclaration<?>> mapExecutables(
-//      List<Executable> reflectionExecutables,
-//      List<CallableDeclaration<?>> sourceExecutables,
-//      String className) {
-//
-//    filterOutGeneratedConstructors(reflectionExecutables, sourceExecutables, className);
-//
-//    if (reflectionExecutables.size() != sourceExecutables.size()) {
-//      // TODO Add the differences to the error message to better characterize the error.
-//      throw new IllegalArgumentException("Error: Provided lists have different size.");
-//    }
-//
-//    Map<Executable, CallableDeclaration<?>> map = new LinkedHashMap<>(reflectionExecutables.size());
-//    for (CallableDeclaration<?> sourceCallable : sourceExecutables) {
-//      final List<Executable> matches =
-//          reflectionExecutables
-//              .stream()
-//              .filter(
-//                  e ->
-//                      getSimpleNameOfExecutable(e.getName(), e instanceof Constructor)
-//                              .equals(sourceCallable.getName().asString())
-//                          && sameParamTypes(e.getParameters(), sourceCallable.getParameters()))
-//              .collect(toList());
-//      if (matches.size() < 1) {
-//        throw new AssertionError(
-//            "Cannot find reflection executable member corresponding to "
-//                + sourceCallable.getSignature());
-//      }
-//      if (matches.size() > 1) {
-//        throw new AssertionError(
-//            "Found multiple reflection executable members corresponding to "
-//                + sourceCallable.getSignature());
-//      }
-//      map.put(matches.get(0), sourceCallable);
-//    }
-//    return map;
-//  }
-
   /**
    * Removes compiler-generated constructors from {@code reflectionExecutables}.
    *
@@ -665,99 +610,6 @@ public final class JavadocExtractor {
 
     return type;
   }
-
-  /**
-   * Search for the type of the exception with the given type name. The type name is allowed to be
-   * fully-qualified or simple, in which case this method tries to guess the package name.
-   *
-   * @param classesInPackage list of class names in {@code sourceCallable}'s package
-   * @param sourceCallable the callable for which the exception with type name {@code
-   *     exceptionTypeName} is expected
-   * @param exceptionTypeName the exception type name (can be fully-qualified or simple)
-   * @param className package of the class where {@code sourceCallable} is defined
-   * @return the exception class
-   * @throws ClassNotFoundException if exception class couldn't be loaded
-   */
-//  private Class<?> findExceptionType(
-//      List<String> classesInPackage,
-//      CallableDeclaration<?> sourceCallable,
-//      String exceptionTypeName,
-//      String className)
-//      throws ClassNotFoundException {
-//
-//    if(exceptionTypeName.endsWith(",")){
-//      exceptionTypeName = exceptionTypeName.substring(0, exceptionTypeName.length()-1);
-//    }
-//    try {
-//      return Reflection.getClass(exceptionTypeName);
-//    } catch (ClassNotFoundException e) {
-//      // Intentionally empty: Apply other heuristics to load the exception type.
-//    }
-//    // Try to load a nested class.
-//    try {
-//      return Reflection.getClass(className + "$" + exceptionTypeName);
-//    } catch (ClassNotFoundException e) {
-//      // Intentionally empty: Apply other heuristics to load the exception type.
-//    }
-//    try {
-//      return Reflection.getClass("java.lang." + exceptionTypeName);
-//    } catch (ClassNotFoundException e) {
-//      // Intentionally empty: Apply other heuristics to load the exception type.
-//    }
-//    try {
-//      return Reflection.getClass("java.io." + exceptionTypeName);
-//    } catch (ClassNotFoundException e) {
-//      // Intentionally empty: Apply other heuristics to load the exception type.
-//    }
-//    try {
-//      return Reflection.getClass("java.util." + exceptionTypeName);
-//    } catch (ClassNotFoundException e) {
-//      // Intentionally empty: Apply other heuristics to load the exception type.
-//    }
-//    // Look in classes of package.
-//    for (String classInPackage : classesInPackage) {
-//      if (classInPackage.contains(exceptionTypeName)) {
-//        // TODO Add a comment explaining why the following check is needed.
-//        if (classInPackage.contains("$")) {
-//          classInPackage = classInPackage.replace(".class", "");
-//        }
-//        return Reflection.getClass(classInPackage);
-//      }
-//    }
-//    // Look for an import statement to complete exception type name.
-//    CompilationUnit cu = getCompilationUnit(sourceCallable);
-//    final NodeList<ImportDeclaration> imports = cu.getImports();
-//    for (ImportDeclaration anImport : imports) {
-//      String importedType = anImport.getNameAsString();
-//     if(anImport.isAsterisk()) {
-//       Reflections reflections =
-//               new Reflections(importedType, new SubTypesScanner(false));
-//
-//       //TODO this works for java libraries e.g. java.util.* but not classes of PUT
-//        Set<Class<? extends Object>> allClasses =
-//                reflections.getSubTypesOf(Object.class);
-//        for(Class<? extends Object> aClass : allClasses){
-//          if (aClass.getName().endsWith("."+exceptionTypeName)) {
-//
-//          }
-//        }
-//      }
-//      if (importedType.endsWith("."+exceptionTypeName)) {
-//        //if the class name of the exception is preceeded by another class name (not package, because of
-//        //the capital letter) then the exception is a nested class
-//          String prefix = importedType.substring(0, importedType.indexOf("." + exceptionTypeName));
-//          int indexBeforeExceptionType = prefix.lastIndexOf(".");
-//          String nameBeforeExcepType = prefix.substring(indexBeforeExceptionType + 1, prefix.length());
-//          if (Character.isUpperCase(nameBeforeExcepType.charAt(0))) {
-//            importedType = importedType.replace("." + exceptionTypeName, "$" + exceptionTypeName);
-//          }
-//        return Reflection.getClass(importedType);
-//      }
-//    }
-//    // TODO Improve error message.
-//    throw new ClassNotFoundException(
-//        "Unable to load exception type " + exceptionTypeName + ". Is it on the classpath?");
-//  }
 
   /**
    * Returns the compilation unit where {@code callableMember} is defined.

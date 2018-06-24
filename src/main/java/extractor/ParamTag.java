@@ -1,8 +1,5 @@
 package extractor;
 
-import java.util.Objects;
-import main.util.Checks;
-
 /**
  * Represents a Javadoc @param comment. Each {@code ParamTag} consists of the name of the parameter,
  * a comment, and a specification (available after the translation of the comment). A specification

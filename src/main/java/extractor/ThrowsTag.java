@@ -1,9 +1,5 @@
 package extractor;
 
-import java.util.Objects;
-import java.util.StringJoiner;
-import main.util.Checks;
-
 /**
  * Represents Javadoc @throws and @exception comments. Each {@link ThrowsTag} consists of a comment,
  * an exception, and a specification (available after the translation of the comment). The

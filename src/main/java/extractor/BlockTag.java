@@ -1,7 +1,8 @@
 package extractor;
 
+import util.Checks;
+
 import java.util.Objects;
-import main.util.Checks;
 
 /**
  * Represents a Javadoc block tag (e.g., {@code @param}, {@code @return}, {@code @thraws}) and its

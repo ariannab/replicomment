@@ -2,7 +2,7 @@ package extractor;
 
 import java.util.List;
 import java.util.Objects;
-import main.util.Checks;
+import util.Checks;
 
 /** Represents a class or interface that is documented with Javadoc comments. */
 public final class DocumentedType {

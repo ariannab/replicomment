@@ -2,15 +2,11 @@ package extractor;
 
 import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.ast.expr.SimpleName;
-import main.util.Checks;
+import util.Checks;
 
-import java.lang.reflect.AnnotatedType;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Executable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.StringJoiner;
 
 /**
  * DocumentedExecutable represents the Javadoc documentation for a method in a class. It identifies
