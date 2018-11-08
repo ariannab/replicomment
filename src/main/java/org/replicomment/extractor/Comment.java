@@ -146,7 +146,7 @@ public final class Comment {
    * @return the computed occurrence
    */
   private int countStringOccurrence(String word, String subSentence, int limitIndex) {
-    Matcher matcher = Pattern.compile("\\b" + word + "\\b").matcher(subSentence);
+    Matcher matcher = Pattern.compile(Pattern.quote("\b" + word + "\b")).matcher(subSentence);
     int i = 0;
     while (matcher.find() && matcher.start() < limitIndex) {
       //Looping on method find preserves the order of matches,

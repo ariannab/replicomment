@@ -105,7 +105,7 @@ public final class JavadocExtractor {
                     trimmedLine.startsWith("* @return") || trimmedLine.startsWith("* @throws")) {
               break;
             } else if (trimmedLine.startsWith("* ")) {
-              parsedFreeText += trimmedLine.substring(2, trimmedLine.length());
+              parsedFreeText = parsedFreeText.concat(trimmedLine.substring(2, trimmedLine.length())) + " ";
             }
 
           }

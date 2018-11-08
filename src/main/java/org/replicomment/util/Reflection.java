@@ -51,7 +51,7 @@ public class Reflection {
     try {
       List<String> jars = FileUtils.readLines(new File(
               JavadocClonesFinder.class
-                      .getResource("/jars.txt").getPath()));
+                      .getResource("/old-list-jars.txt").getPath()));
       for(String jar : jars){
         urls.add(new URL("file:"+jar));
       }
