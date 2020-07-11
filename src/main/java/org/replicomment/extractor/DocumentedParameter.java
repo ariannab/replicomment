@@ -1,5 +1,6 @@
 package org.replicomment.extractor;
 
+import com.github.javaparser.ast.type.Type;
 import org.replicomment.util.Checks;
 
 import java.util.Arrays;
@@ -18,6 +19,7 @@ public final class DocumentedParameter {
   private final String name;
   /** True if this parameter is nullable, false if nonnull, and null if unspecified. */
   private final Boolean nullable;
+  private final String typeName;
 
   /**
    * Constructs a parameter with the given type and name.
@@ -26,9 +28,10 @@ public final class DocumentedParameter {
    * @param nullable true if the parameter is nullable, false if nonnull and null if unspecified
    * @throws NullPointerException if type or name is null
    */
-  public DocumentedParameter(String name, Boolean nullable) {
+  public DocumentedParameter(Type type, String name, Boolean nullable) {
     Checks.nonNullParameter(name, "name");
     this.name = name;
+    this.typeName = type.asString();
     this.nullable = nullable;
   }
 
@@ -37,8 +40,8 @@ public final class DocumentedParameter {
    *
    * @param name the name of the parameter
    */
-  public DocumentedParameter(String name) {
-    this(name, null);
+  public DocumentedParameter(Type type, String name) {
+    this(type, name, null);
   }
 
   /**
@@ -48,6 +51,15 @@ public final class DocumentedParameter {
    */
   public String getName() {
     return name;
+  }
+
+  /**
+   * Returns the name of the parameter type.
+   *
+   * @return the name of the parameter type
+   */
+  public String getTypeName() {
+    return typeName;
   }
 
   /**

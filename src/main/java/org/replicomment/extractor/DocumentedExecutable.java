@@ -20,12 +20,18 @@ public final class DocumentedExecutable {
   /** Parameter list. */
   private final List<DocumentedParameter> parameters;
   private final SimpleName name;
+//  private final String returnType;
   private final CallableDeclaration.Signature signature;
+  private final String returnType;
 
   /** Javadoc @param, @return, and @throws tags of this executable member. */
   private BlockTags tags;
 
   private String javadocFreeText;
+
+  public String getReturnType() {
+    return this.returnType;
+  }
 
   /** Represents the @param, @return, and @throws tags of an executable member. */
   public static class BlockTags {
@@ -119,12 +125,13 @@ public final class DocumentedExecutable {
    * @param blockTags the Javadoc comments introduced by block tags (e.g., {@code @param},
  *     {@code @return}) associated with this executable member
    */
-  DocumentedExecutable(SimpleName name, CallableDeclaration.Signature signature, List<DocumentedParameter> parameters, BlockTags blockTags, String javadocFreeText) {
+  DocumentedExecutable(SimpleName name, String returnType, CallableDeclaration.Signature signature, List<DocumentedParameter> parameters, BlockTags blockTags, String javadocFreeText) {
 //    Checks.nonNullParameter(executable, "executable");
     Checks.nonNullParameter(parameters, "parameters");
 
 //    this.executable = executable;
 //    checkParametersConsistency(executable.getParameters(), parameters);
+    this.returnType = returnType;
     this.name = name;
     this.signature = signature;
     this.parameters = parameters;
@@ -254,6 +261,36 @@ public final class DocumentedExecutable {
   }
 
   /**
+   * Returns the whole javadoc documentation for this method
+   *
+   * @return whole javadoc
+   */
+  public String getWholeJavadocAsString(){
+    StringBuilder javadoc = new StringBuilder();
+    // Append summary
+    if(this.javadocFreeText!=null) {
+      javadoc.append(this.javadocFreeText);
+      javadoc.append(" ");
+    }
+    // Append all parameters
+    for(ParamTag tag : this.tags.paramTags()){
+      javadoc.append("@param ");
+      javadoc.append(tag.getComment().getText());
+    }
+    // Append return
+    if(this.returnTag()!=null) {
+      javadoc.append("@return ");
+      javadoc.append(this.tags.returnTag.getComment().getText());
+    }
+    // Append throws
+    for(ThrowsTag tag : this.tags.throwsTags()){
+      javadoc.append("@throws ");
+      javadoc.append(tag.getComment().getText());
+    }
+
+    return  javadoc.toString();
+  }
+  /**
    * Returns the return type of this method or null if this is a constructor.
    *
    * @return the return type of this method or {@code null} if this is a constructor
@@ -321,4 +358,32 @@ public final class DocumentedExecutable {
 //  public String toString() {
 //    return executable.toString();
 //  }
+
+  /**
+   * Returns signature in the form of return-type_simple-name_[parameter type, parameter name]
+   * @return
+   */
+  public String toString(){
+    StringBuilder stringToRet = new StringBuilder();
+    stringToRet.append(this.returnType);
+    stringToRet.append(" ");
+    stringToRet.append(this.name.toString());
+    stringToRet.append("(");
+
+    int count = 0;
+    for(DocumentedParameter p : this.parameters){
+      count++;
+      stringToRet.append(p.getTypeName());
+      stringToRet.append(" ");
+      stringToRet.append(p.getName());
+      if(count < this.parameters.size()) {
+        stringToRet.append(",");
+        stringToRet.append(" ");
+      }
+    }
+    stringToRet.append(")");
+
+    return stringToRet.toString();
+
+  }
 }

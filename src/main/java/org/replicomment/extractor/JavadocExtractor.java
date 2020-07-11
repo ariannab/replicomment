@@ -9,6 +9,7 @@ import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.EnumDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.comments.JavadocComment;
 import com.github.javaparser.ast.nodeTypes.modifiers.NodeWithPrivateModifier;
 import com.github.javaparser.javadoc.Javadoc;
@@ -110,8 +111,15 @@ public final class JavadocExtractor {
 
           }
         }
-        documentedExecutables.add(new DocumentedExecutable(
-                sourceCallable.getName(), sourceCallable.getSignature(), parameters, blockTags, parsedFreeText));
+        if(sourceCallable instanceof MethodDeclaration){
+          documentedExecutables.add(new DocumentedExecutable(
+                  sourceCallable.getName(), ((MethodDeclaration) sourceCallable).getType().asString(),
+                  sourceCallable.getSignature(), parameters, blockTags, parsedFreeText));
+        }else {
+          documentedExecutables.add(new DocumentedExecutable(
+                  sourceCallable.getName(), "", sourceCallable.getSignature(), parameters,
+                  blockTags, parsedFreeText));
+        }
       }
 
       //    log.info(
@@ -345,7 +353,7 @@ public final class JavadocExtractor {
       final com.github.javaparser.ast.body.Parameter parameter = sourceParams.get(i);
       final String paramName = parameter.getName().asString();
       final Boolean nullable = isNullable(parameter);
-      parameters.add(new DocumentedParameter(paramName, nullable));
+      parameters.add(new DocumentedParameter(parameter.getType(), paramName, nullable));
     }
     return parameters;
   }
@@ -572,7 +580,7 @@ public final class JavadocExtractor {
    * @param type string representation of the type
    * @return the raw type
    */
-  private String rawType(String type) {
+  public static String rawType(String type) {
     int i = type.indexOf("<");
     if (i != -1) { // If type contains "<".
       return type.substring(0, i);

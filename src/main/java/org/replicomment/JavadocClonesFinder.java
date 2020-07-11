@@ -4,23 +4,44 @@ import org.replicomment.extractor.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.RegexFileFilter;
 import org.apache.commons.io.filefilter.TrueFileFilter;
+import org.replicomment.util.Reflection;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class JavadocClonesFinder {
 
-    public static void main(String[] args) throws IOException, ClassNotFoundException {
+    public static void main(String[] args) throws IOException {
         final JavadocExtractor javadocExtractor = new JavadocExtractor();
-        List<String> sourceFolders = FileUtils.readLines(new File(
-                JavadocClonesFinder.class.getResource("/sources.txt").getPath()));
+//        List<String> sourceFolders = FileUtils.readLines(new File(
+//                JavadocClonesFinder.class.getResource("/sources.txt").getPath()));
 
-        int count = 0;
-        for(String sourceFolder : sourceFolders){
+        Map<String,String> sourceFolders = new HashMap<>();
+        sourceFolders.put("coll","/Users/arianna/toradocu/src/test/resources/commons-collections4-4.1-src/src/main/java/");
+        sourceFolders.put("guava", "/Users/arianna/toradocu/src/test/resources/guava-19.0-sources/");
+        sourceFolders.put("lucene","/Users/arianna/comment-clones/javadoclones/src/resources/src/lucene-core-7.2.1-sources/");
+        sourceFolders.put("hadoop","/Users/arianna/comment-clones/javadoclones/src/resources/src/hadoop-2.6.5-src/" +
+                "hadoop-common-project/hadoop-common/src/main/java/");
+        sourceFolders.put("hadoop-hdfs",
+                "/Users/arianna/comment-clones/javadoclones/src/resources/src/hadoop-2.6.5-src/hadoop-hdfs-project/" +
+                        "hadoop-hdfs/src/main/java/");
+        sourceFolders.put("elastic", "/Users/arianna/comment-clones/javadoclones/src/resources/src/elasticsearch-6.1.1-sources/");
+        sourceFolders.put("vertx", "/Users/arianna/comment-clones/javadoclones/src/resources/src/vertx-core-3.5.0-sources/");
+        sourceFolders.put("spring", "/Users/arianna/comment-clones/javadoclones/src/resources/src/spring-core-5.0.2-sources/");
+        sourceFolders.put("log4j", "/Users/arianna/comment-clones/javadoclones/src/resources/src/log4j-1.2.17-sources/");
+        sourceFolders.put("solr", "/Users/arianna/comment-clones/javadoclones/src/resources/src/solr-solrj-7.1.0-sources/");
+        sourceFolders.put("rx", "/Users/arianna/comment-clones/javadoclones/src/resources/src/rxjava-1.3.5-sources/");
+
+
+
+        for(String sourceFolderID : sourceFolders.keySet()){
             //Collect all sources
+            String sourceFolder = sourceFolders.get(sourceFolderID);
             try {
                 Collection<File> list = FileUtils.listFiles(
                         new File(
@@ -28,7 +49,7 @@ public class JavadocClonesFinder {
                         new RegexFileFilter("(.*).java"),
                         TrueFileFilter.INSTANCE);
                 String[] selectedClassNames  = getClassesInFolder(list, sourceFolder);
-                FileWriter writer = new FileWriter("Javadoc_clones_"+count+++".csv");
+                FileWriter writer = new FileWriter("2020_JavadocClones_"+sourceFolderID+".csv");
                 writer.append("Class");
                 writer.append(';');
                 writer.append("Method1");
@@ -51,6 +72,8 @@ public class JavadocClonesFinder {
             }
         }
 
+        System.out.println("[INFO] Terminating now ...");
+
     }
 
     /**
@@ -60,10 +83,11 @@ public class JavadocClonesFinder {
      * @param javadocExtractor the {@code JavadocExtractor} that extracts the Javadocs
      * @param sourcesFolder folder containing the Java sources to analyze
      * @param selectedClassNames fully qualified names of the Java classes to be analyzed
-     * @throws ClassNotFoundException if a class couldn't be found
-     * @throws IOException if there are problems with the file
      */
-    private static void analyzeClones(FileWriter writer, JavadocExtractor javadocExtractor, String sourcesFolder, String[] selectedClassNames) throws ClassNotFoundException, IOException {
+    private static void analyzeClones(FileWriter writer,
+                                      JavadocExtractor javadocExtractor,
+                                      String sourcesFolder,
+                                      String[] selectedClassNames){
         for(String className : selectedClassNames) {
             try {
                 DocumentedType documentedType = javadocExtractor.extract(
@@ -77,107 +101,221 @@ public class JavadocClonesFinder {
                         for (int j = i + 1; j < executables.size(); j++) {
                             DocumentedExecutable second = executables.get(j);
 
-                            boolean legit = isCloneLegit(first.getName(), second.getName());
+                            String firstJavadoc = first.getWholeJavadocAsString();
+                            String secondJavadoc = second.getWholeJavadocAsString();
 
-                            if (!freeTextToFilter(first.getJavadocFreeText())) {
-                                String cleanFirst = first.getJavadocFreeText().trim().replaceAll("\n ", "");
-                                String cleanSecond = second.getJavadocFreeText().trim().replaceAll("\n ", "");
-                                if (cleanFirst.equals(cleanSecond)) {
-//                                    System.out.println("\nFree text clone: " + first.getJavadocFreeText() + "\n" +
-//                                            " among " + first.getSignature() + " \nand " + second.getSignature());
+                            String firstSignature = first.toString();
+                            String secondSignature = second.toString();
 
-                                    writer.append(className);
-                                    writer.append(';');
-                                    writer.append(first.getSignature());
-                                    writer.append(';');
-                                    writer.append(second.getSignature());
-                                    writer.append(';');
-                                    writer.append("Free text");
-                                    writer.append(';');
-                                    writer.append(first.getJavadocFreeText().replaceAll(";", ","));
-                                    writer.append(';');
-                                    writer.append(String.valueOf(legit));
-                                    writer.append("\n");
-                                }
-                            }
-                            if (first.returnTag() != null && second.returnTag() != null) {
-                                String cleanFirst = first.returnTag().getComment().getText().trim().replaceAll("\n ", "");
-                                if (!cleanFirst.isEmpty()) {
-                                    String cleanSecond = second.returnTag().getComment().getText().trim().replaceAll("\n ", "");
-                                    if (cleanFirst.equals(cleanSecond)) {
-//                                        System.out.println("\n@return tag clone: " + first.returnTag().getComment().getText() + "\n" +
-//                                                " among " + first.getSignature() + " \nand " + second.getSignature());
+                            boolean wholeClone = isWholeClone(firstJavadoc, secondJavadoc);
+                            if (!wholeClone) {
+                                // Not a whole comment clone. Overloading?
+                                boolean legit = isOverloading(first.getName(), second.getName());
 
-                                        writer.append(className);
-                                        writer.append(';');
-                                        writer.append(first.getSignature());
-                                        writer.append(';');
-                                        writer.append(second.getSignature());
-                                        writer.append(';');
-                                        writer.append("@return");
-                                        writer.append(';');
-                                        writer.append(first.returnTag().getComment().getText().replaceAll(";", ","));
-                                        writer.append(';');
-                                        writer.append(String.valueOf(legit));
-                                        writer.append("\n");
-                                    }
-                                }
-                            }
-                            for (ParamTag firstParamTag : first.paramTags()) {
-                                String cleanFirst = firstParamTag.getComment().getText().trim().replaceAll("\n ", "");
-                                if (!cleanFirst.isEmpty()) {
-                                    for (ParamTag secParamTag : second.paramTags()) {
-                                            String cleanSecond = secParamTag.getComment().getText().trim().replaceAll("\n ", "");
-                                            if (cleanFirst.equals(cleanSecond)) {
-//                                                System.out.println("\n@param tag clone: " + firstParamTag.getComment().getText() + "\n" +
-//                                                        " among " + first.getSignature() + " \nand " + second.getSignature());
-                                                writer.append(className);
-                                                writer.append(';');
-                                                writer.append(first.getSignature());
-                                                writer.append(';');
-                                                writer.append(second.getSignature());
-                                                writer.append(';');
-                                                writer.append("@param");
-                                                writer.append(';');
-                                                writer.append(firstParamTag.getComment().getText().replaceAll(";", ","));
-                                                writer.append(';');
-                                                writer.append(String.valueOf(legit || firstParamTag.getParamName().equals(secParamTag.getParamName())));
-                                                writer.append("\n");
-                                            }
+                                freeTextCloneCheck(writer, className, first, second, legit);
+                                returnTagCloneCheck(writer, className, first, second, legit);
 
-                                    }
-                                }
-                            }
+                                for (ParamTag firstParamTag : first.paramTags()) {
+                                    String cleanFirst = firstParamTag
+                                            .getComment()
+                                            .getText()
+                                            .trim()
+                                            .replaceAll("\n ", "");
+                                    if (!cleanFirst.isEmpty()) {
+                                        for (ParamTag secParamTag : second.paramTags()) {
+                                            paramTagsCloneCheck(writer, className, firstSignature, secondSignature,
+                                                    legit, firstParamTag, secParamTag);
 
-                            for (ThrowsTag firstThrowTag : first.throwsTags()) {
-                                String cleanFirst = firstThrowTag.getComment().getText().trim().replaceAll("\n ", "");
-                                if (!cleanFirst.isEmpty()) {
-                                    for (ThrowsTag secThrowTag : second.throwsTags()) {
-                                        String cleanSecond = secThrowTag.getComment().getText().trim().replaceAll("\n ", "");
-                                        if (cleanFirst.equals(cleanSecond)) {
-//                                            System.out.println("\n@throws tag clone: " + firstThrowTag.getComment().getText() + "\n" +
-//                                                    " among " + first.getSignature() + " \nand " + second.getSignature());
-                                            writer.append(className);
-                                            writer.append(';');
-                                            writer.append(first.getSignature());
-                                            writer.append(';');
-                                            writer.append(second.getSignature());
-                                            writer.append(';');
-                                            writer.append("@throws");
-                                            writer.append(';');
-                                            writer.append(firstThrowTag.getComment().getText().replaceAll(";", ","));
-                                            writer.append(';');
-                                            writer.append(String.valueOf(legit || firstThrowTag.getException().equals(secThrowTag.getException())));
-                                            writer.append("\n");
                                         }
                                     }
                                 }
+
+                                for (ThrowsTag firstThrowTag : first.throwsTags()) {
+                                    String cleanFirst = firstThrowTag.getComment()
+                                            .getText()
+                                            .trim()
+                                            .replaceAll("\n ", "");
+                                    if (!cleanFirst.isEmpty()) {
+                                        for (ThrowsTag secThrowTag : second.throwsTags()) {
+                                            throwsTagCloneCheck(writer, className, firstSignature, secondSignature,
+                                                    firstThrowTag, secThrowTag, legit);
+                                        }
+                                    }
+                                }
+                            }else{
+                                wholeClonePrint(writer, className, first, second, false, firstJavadoc,
+                                        "Whole");
                             }
                         }
                     }
                 }
-            }catch(Exception e){
+            }catch(IOException e){
                 //do nothing
+            }
+        }
+    }
+
+    private static void wholeClonePrint(FileWriter writer, String className,
+                                        DocumentedExecutable first, DocumentedExecutable second,
+                                        boolean b, String firstJavadoc, String whole) throws IOException {
+        writer.append(className);
+        writer.append(';');
+        writer.append(first.toString());
+        writer.append(';');
+        writer.append(second.toString());
+        writer.append(';');
+        writer.append(whole);
+        writer.append(';');
+        writer.append(firstJavadoc.replaceAll(";", ","));
+        writer.append(';');
+        writer.append(String.valueOf(b));
+        writer.append("\n");
+    }
+
+    private static boolean isWholeClone(String first, String second) {
+        return !freeTextToFilter(first) && first.equals(second);
+    }
+
+    private static void throwsTagCloneCheck(FileWriter writer,
+                                               String className,
+                                               String firstMethod,
+                                               String secondMethod,
+                                               ThrowsTag firstTag,
+                                               ThrowsTag secondTag,
+                                               boolean legit) throws IOException {
+
+        Comment comment1 = firstTag.getComment();
+        Comment comment2 = secondTag.getComment();
+
+        String cleanFirst = comment1.getText().trim().replaceAll("\n ", "");
+        String cleanSecond = comment2.getText().trim().replaceAll("\n ", "");
+
+        if (cleanFirst.equals(cleanSecond)) {
+
+            String exceptionNameOne = firstTag.getException();
+            String exceptionNameTwo = secondTag.getException();
+            // Same exception name: could be a legitimate clone
+            legit = legit || exceptionNameOne.equals(exceptionNameTwo);
+            // However no exception shorter than 3 words can be completely documented
+            legit = legit && comment1.getText().split(" ").length > 3;
+            // ...unless it is thrown always
+//            legit = legit && !cleanFirst.equals("always");
+
+//          System.out.println("\n@param tag clone: " + firstParamTag.getComment().getText() + "\n" +
+//          " among " + first.getSignature() + " \nand " + second.getSignature());
+
+            writer.append(className);
+            writer.append(';');
+            writer.append(firstMethod);
+            writer.append(';');
+            writer.append(secondMethod);
+            writer.append(';');
+            writer.append("@throws");
+            writer.append(';');
+            writer.append(comment1.getText().replaceAll(";", ","));
+            writer.append(';');
+            writer.append(String.valueOf(legit));
+            writer.append("\n");
+        }
+    }
+
+    private static void paramTagsCloneCheck(FileWriter writer,
+                                            String className,
+                                            String first,
+                                            String second,
+                                            boolean legit,
+                                            ParamTag firstTag,
+                                            ParamTag secondTag) throws IOException {
+
+        Comment comment1 = firstTag.getComment();
+        Comment comment2 = secondTag.getComment();
+
+        String cleanFirst = comment1.getText().trim().replaceAll("\n ", "");
+        String cleanSecond = comment2.getText().trim().replaceAll("\n ", "");
+
+        String paramName1 = firstTag.getParamName();
+        String paramName2 = secondTag.getParamName();
+
+        // Same parameter name could mean legitimate clone
+        legit = legit || paramName1.equals(paramName2);
+
+        if (cleanFirst.equals(cleanSecond)) {
+//          System.out.println("\n@param tag clone: " + firstParamTag.getComment().getText() + "\n" +
+//          " among " + first.getSignature() + " \nand " + second.getSignature());
+            writer.append(className);
+            writer.append(';');
+            writer.append(first);
+            writer.append(';');
+            writer.append(second);
+            writer.append(';');
+            writer.append("@param");
+            writer.append(';');
+            writer.append(comment1.getText().replaceAll(";", ","));
+            writer.append(';');
+            writer.append(String.valueOf(legit));
+            writer.append("\n");
+        }
+    }
+
+    private static void returnTagCloneCheck(FileWriter writer,
+                                            String className,
+                                            DocumentedExecutable first,
+                                            DocumentedExecutable second,
+                                            boolean isOverloadingOverriding) throws IOException {
+        // Legitimate clone if overloading/overriding or if it's a return tag for same return type
+        boolean legit = isOverloadingOverriding || isSameReturnType(first, second);
+
+        if (first.returnTag() != null && second.returnTag() != null) {
+            String firstComment = first.returnTag().getComment().getText();
+            String cleanFirst = firstComment.trim().replaceAll("\n ", "");
+
+            if (!cleanFirst.isEmpty()) {
+                String cleanSecond = second.returnTag().getComment().getText().trim().replaceAll("\n ", "");
+                if (cleanFirst.equals(cleanSecond)) {
+//              System.out.println("\n@return tag clone: " + first.returnTag().getComment().getText() + "\n" +
+//               " among " + first.getSignature() + " \nand " + second.getSignature());
+
+                    writer.append(className);
+                    writer.append(';');
+                    writer.append(first.toString());
+                    writer.append(';');
+                    writer.append(second.toString());
+                    writer.append(';');
+                    writer.append("@return");
+                    writer.append(';');
+                    writer.append(firstComment.replaceAll(";", ","));
+                    writer.append(';');
+                    writer.append(String.valueOf(legit));
+                    writer.append("\n");
+                }
+            }
+        }
+    }
+
+    private static void freeTextCloneCheck(FileWriter writer,
+                                           String className,
+                                           DocumentedExecutable first,
+                                           DocumentedExecutable second,
+                                           boolean legit) throws IOException {
+        if (!freeTextToFilter(first.getJavadocFreeText())) {
+            String cleanFirst = first.getJavadocFreeText().trim().replaceAll("\n ", "");
+            String cleanSecond = second.getJavadocFreeText().trim().replaceAll("\n ", "");
+            if (cleanFirst.equals(cleanSecond)) {
+//                                    System.out.println("\nFree text clone: " + first.getJavadocFreeText() + "\n" +
+//                                            " among " + first.getSignature() + " \nand " + second.getSignature());
+
+                writer.append(className);
+                writer.append(';');
+                writer.append(first.toString());
+                writer.append(';');
+                writer.append(second.toString());
+                writer.append(';');
+                writer.append("Free text");
+                writer.append(';');
+                writer.append(first.getJavadocFreeText().replaceAll(";", ","));
+                writer.append(';');
+                writer.append(String.valueOf(legit));
+                writer.append("\n");
             }
         }
     }
@@ -201,19 +339,58 @@ public class JavadocClonesFinder {
      */
     private static boolean freeTextToFilter(String freeText) {
         String noBlankFreeText = freeText.trim().replaceAll("\n ", "");
-        return  noBlankFreeText.isEmpty() || noBlankFreeText.equals("{@inheritDoc}");
+        return  noBlankFreeText.isEmpty()
+                || noBlankFreeText.equals("{@inheritDoc}")
+                || noBlankFreeText.equals("{@deprecated}");
     }
 
     /**
-     * Check if comment clone is legit, meaning that the case could be an override or overload.
+     * Check if comment clone could be because of an overloaded method.
+     * Originally, this method was also labelling overriding as legitimate
+     * clone.
+     *
+     * Given the amount of actual copy&paste cases happening
+     * because of overriding, we now prefer to keep the benefit of the doubt.
+     * For overloading, the matter is less borderline: the difference is
+     * only in the parameters; if @param are different, it is fine to
+     * believe the clone is legitimate. Overload cases which do not differ
+     * at least at the @param level will NOT be labeled as legitimate.
      *
      * @param firstName first method name
      * @param secondName second method name
-     * @return true if the comment clone is legit
+     * @return true if method overloading
      */
-    private static boolean isCloneLegit(String firstName, String secondName) {
-        return firstName.equals(secondName) || firstName.contains(secondName) || secondName.contains(firstName);
+    private static boolean isOverloading(String firstName, String secondName) {
+        firstName = firstName.toLowerCase();
+        secondName = secondName.toLowerCase();
+        return firstName.equals(secondName);
+//                || firstName.contains(secondName)
+//                || secondName.contains(firstName);
 
+    }
+
+    /**
+     * Check if @return clone could be because of same (non-primitive) type.
+     *
+     *
+     * @return true if same return type
+     */
+    private static boolean isSameReturnType(DocumentedExecutable first, DocumentedExecutable second) {
+        String firstType = first.getReturnType();
+        // Clean possible generic types
+        firstType = JavadocExtractor.rawType(firstType);
+        String secondType = second.getReturnType();
+        secondType = JavadocExtractor.rawType(secondType);
+
+        // Constructors
+        if(firstType.trim().isEmpty()){
+            return secondType.trim().isEmpty();
+        }
+        if(Reflection.getPrimitiveClasses().get(firstType)!=null){
+            // one of the two is a PRIMITIVE type: always consider potential clone
+            return false;
+        }
+        else return firstType.equals(secondType);
     }
 
     /**

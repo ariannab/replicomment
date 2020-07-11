@@ -23,7 +23,7 @@ public class Reflection {
     map.put("long", Long.TYPE);
     map.put("double", Double.TYPE);
     map.put("float", Float.TYPE);
-    map.put("bool", Boolean.TYPE);
+    map.put("boolean", Boolean.TYPE);
     map.put("char", Character.TYPE);
     map.put("byte", Byte.TYPE);
     map.put("void", Void.TYPE);
@@ -33,6 +33,10 @@ public class Reflection {
 
   /** Makes constructor private to prevent the instantiation of this class objects. */
   private Reflection() {}
+
+  public static Map<String, Class> getPrimitiveClasses() {
+    return primitiveClasses;
+  }
 
   /**
    * Returns the {@code Class} object for the class with the given name or null if the class could
@@ -51,7 +55,7 @@ public class Reflection {
     try {
       List<String> jars = FileUtils.readLines(new File(
               JavadocClonesFinder.class
-                      .getResource("/old-list-jars.txt").getPath()));
+                      .getResource("/jars.txt").getPath()));
       for(String jar : jars){
         urls.add(new URL("file:"+jar));
       }
