@@ -12,6 +12,8 @@ public final class ParamTag extends BlockTag {
 
   private final String paramName;
 
+  private final String paramType;
+
   /** The parameter associated with the param tag */
 //  private final DocumentedParameter parameter;
 
@@ -20,17 +22,24 @@ public final class ParamTag extends BlockTag {
    *
    *
    * @param paramName
+   * @param typeName
    * @param comment the comment associated with the tag
    * @throws NullPointerException if parameter or comment is null
    */
-  public ParamTag(String paramName, Comment comment) {
+  public ParamTag(String paramName, String typeName, Comment comment) {
     super(Kind.PARAM, comment);
     this.paramName = paramName;
+    this.paramType = typeName;
 //    this.parameter = parameter;
   }
 
   public String getParamName() {
     return paramName;
+  }
+
+
+  public String getParamType() {
+    return paramType;
   }
 
 //  /**

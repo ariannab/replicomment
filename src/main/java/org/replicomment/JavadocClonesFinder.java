@@ -22,7 +22,6 @@ public class JavadocClonesFinder {
 //                JavadocClonesFinder.class.getResource("/sources.txt").getPath()));
 
         Map<String,String> sourceFolders = new HashMap<>();
-        sourceFolders.put("coll","/Users/arianna/toradocu/src/test/resources/commons-collections4-4.1-src/src/main/java/");
         sourceFolders.put("guava", "/Users/arianna/toradocu/src/test/resources/guava-19.0-sources/");
         sourceFolders.put("lucene","/Users/arianna/comment-clones/javadoclones/src/resources/src/lucene-core-7.2.1-sources/");
         sourceFolders.put("hadoop","/Users/arianna/comment-clones/javadoclones/src/resources/src/hadoop-2.6.5-src/" +
@@ -49,7 +48,7 @@ public class JavadocClonesFinder {
                         new RegexFileFilter("(.*).java"),
                         TrueFileFilter.INSTANCE);
                 String[] selectedClassNames  = getClassesInFolder(list, sourceFolder);
-                FileWriter writer = new FileWriter("2020_JavadocClones_"+sourceFolderID+".csv");
+                FileWriter writer = new FileWriter("2018_JavadocClones_"+sourceFolderID+".csv");
                 writer.append("Class");
                 writer.append(';');
                 writer.append("Method1");
@@ -57,6 +56,10 @@ public class JavadocClonesFinder {
                 writer.append("Method2");
                 writer.append(';');
                 writer.append("Type");
+                writer.append(';');
+                writer.append("Param1");
+                writer.append(';');
+                writer.append("Param2");
                 writer.append(';');
                 writer.append("Cloned text");
                 writer.append(';');
@@ -107,6 +110,7 @@ public class JavadocClonesFinder {
                             String firstSignature = first.toString();
                             String secondSignature = second.toString();
 
+                            // TODO NEW HEURISTIC, BUT HOW TO EXCLUDE? JUST MUTE?
                             boolean wholeClone = isWholeClone(firstJavadoc, secondJavadoc);
                             if (!wholeClone) {
                                 // Not a whole comment clone. Overloading?
@@ -143,8 +147,7 @@ public class JavadocClonesFinder {
                                     }
                                 }
                             }else{
-                                wholeClonePrint(writer, className, first, second, false, firstJavadoc,
-                                        "Whole");
+                                wholeClonePrint(writer, className, first, second, false, firstJavadoc);
                             }
                         }
                     }
@@ -157,14 +160,18 @@ public class JavadocClonesFinder {
 
     private static void wholeClonePrint(FileWriter writer, String className,
                                         DocumentedExecutable first, DocumentedExecutable second,
-                                        boolean b, String firstJavadoc, String whole) throws IOException {
+                                        boolean b, String firstJavadoc) throws IOException {
         writer.append(className);
         writer.append(';');
         writer.append(first.toString());
         writer.append(';');
         writer.append(second.toString());
         writer.append(';');
-        writer.append(whole);
+        writer.append("Whole");
+        writer.append(';');
+        writer.append("");
+        writer.append(';');
+        writer.append("");
         writer.append(';');
         writer.append(firstJavadoc.replaceAll(";", ","));
         writer.append(';');
@@ -196,8 +203,20 @@ public class JavadocClonesFinder {
             String exceptionNameTwo = secondTag.getException();
             // Same exception name: could be a legitimate clone
             legit = legit || exceptionNameOne.equals(exceptionNameTwo);
-            // However no exception shorter than 3 words can be completely documented
-            legit = legit && comment1.getText().split(" ").length > 3;
+
+
+            String genericConditionEx = "(if|for) (any|an) (error|problem|issue) (that|which)? (occurs|happens|raises)";
+            // The following would be < 3 anyway
+            //            String genericEx = "(upon|on) (error)";
+
+            // Cloned exception will be tolerated ONLY IF:
+            // - same exception name;
+            // - no shorter than 4 words;
+            // - not generic condition ("if an error occurs" etc.)
+            // TODO NEW HEURISTIC
+//            legit = legit
+//                    && comment1.getText().split(" ").length > 3
+//                    && !comment1.getText().matches(genericConditionEx);
             // ...unless it is thrown always
 //            legit = legit && !cleanFirst.equals("always");
 
@@ -211,6 +230,10 @@ public class JavadocClonesFinder {
             writer.append(secondMethod);
             writer.append(';');
             writer.append("@throws");
+            writer.append(';');
+            writer.append("");
+            writer.append(';');
+            writer.append("");
             writer.append(';');
             writer.append(comment1.getText().replaceAll(";", ","));
             writer.append(';');
@@ -236,6 +259,9 @@ public class JavadocClonesFinder {
         String paramName1 = firstTag.getParamName();
         String paramName2 = secondTag.getParamName();
 
+        String paramType1 = firstTag.getParamType();
+        String paramType2 = secondTag.getParamType();
+
         // Same parameter name could mean legitimate clone
         legit = legit || paramName1.equals(paramName2);
 
@@ -250,6 +276,10 @@ public class JavadocClonesFinder {
             writer.append(';');
             writer.append("@param");
             writer.append(';');
+            writer.append(paramType1 + " " +paramName1);
+            writer.append(';');
+            writer.append(paramType2 + " " + paramName2);
+            writer.append(';');
             writer.append(comment1.getText().replaceAll(";", ","));
             writer.append(';');
             writer.append(String.valueOf(legit));
@@ -261,9 +291,11 @@ public class JavadocClonesFinder {
                                             String className,
                                             DocumentedExecutable first,
                                             DocumentedExecutable second,
-                                            boolean isOverloadingOverriding) throws IOException {
+                                            boolean legit) throws IOException {
         // Legitimate clone if overloading/overriding or if it's a return tag for same return type
-        boolean legit = isOverloadingOverriding || isSameReturnType(first, second);
+        // TODO NEW HEURISTIC
+//        boolean legit = legit
+//                || isSameReturnType(first, second);
 
         if (first.returnTag() != null && second.returnTag() != null) {
             String firstComment = first.returnTag().getComment().getText();
@@ -282,6 +314,10 @@ public class JavadocClonesFinder {
                     writer.append(second.toString());
                     writer.append(';');
                     writer.append("@return");
+                    writer.append(';');
+                    writer.append("");
+                    writer.append(';');
+                    writer.append("");
                     writer.append(';');
                     writer.append(firstComment.replaceAll(";", ","));
                     writer.append(';');
@@ -311,6 +347,10 @@ public class JavadocClonesFinder {
                 writer.append(second.toString());
                 writer.append(';');
                 writer.append("Free text");
+                writer.append(';');
+                writer.append("");
+                writer.append(';');
+                writer.append("");
                 writer.append(';');
                 writer.append(first.getJavadocFreeText().replaceAll(";", ","));
                 writer.append(';');

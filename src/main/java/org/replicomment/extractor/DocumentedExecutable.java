@@ -270,18 +270,20 @@ public final class DocumentedExecutable {
     // Append summary
     if(this.javadocFreeText!=null) {
       javadoc.append(this.javadocFreeText);
-      javadoc.append(" ");
     }
+    javadoc.append(" ");
     // Append all parameters
     for(ParamTag tag : this.tags.paramTags()){
       javadoc.append("@param ");
       javadoc.append(tag.getComment().getText());
     }
+    javadoc.append(" ");
     // Append return
     if(this.returnTag()!=null) {
       javadoc.append("@return ");
       javadoc.append(this.tags.returnTag.getComment().getText());
     }
+    javadoc.append(" ");
     // Append throws
     for(ThrowsTag tag : this.tags.throwsTags()){
       javadoc.append("@throws ");
@@ -365,7 +367,7 @@ public final class DocumentedExecutable {
    */
   public String toString(){
     StringBuilder stringToRet = new StringBuilder();
-    stringToRet.append(this.returnType);
+    stringToRet.append(JavadocExtractor.rawType(this.returnType));
     stringToRet.append(" ");
     stringToRet.append(this.name.toString());
     stringToRet.append("(");
@@ -373,7 +375,7 @@ public final class DocumentedExecutable {
     int count = 0;
     for(DocumentedParameter p : this.parameters){
       count++;
-      stringToRet.append(p.getTypeName());
+      stringToRet.append(JavadocExtractor.rawType(p.getTypeName()));
       stringToRet.append(" ");
       stringToRet.append(p.getName());
       if(count < this.parameters.size()) {

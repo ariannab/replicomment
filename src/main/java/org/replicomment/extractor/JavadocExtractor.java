@@ -333,10 +333,14 @@ public final class JavadocExtractor {
     // TODO If paramName not present in paramNames => issue a warning about incorrect documentation!
     // TODO If more than one matching parameter found => issue a warning about incorrect documentation!
     Comment commentObject = new Comment(blockTag.getContent().toText());
+    String typeName = "";
     if(matchingParams.isEmpty()){
       paramName = "nullParamName";
+    }else{
+      DocumentedParameter docParam = matchingParams.get(0);
+      typeName = docParam.getTypeName();
     }
-    return new ParamTag(paramName, commentObject);
+    return new ParamTag(paramName, typeName, commentObject);
   }
 
   /**
