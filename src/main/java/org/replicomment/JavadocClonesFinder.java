@@ -48,6 +48,7 @@ public class JavadocClonesFinder {
                         new RegexFileFilter("(.*).java"),
                         TrueFileFilter.INSTANCE);
                 String[] selectedClassNames  = getClassesInFolder(list, sourceFolder);
+                // Prepare results header
                 FileWriter writer = new FileWriter("2018_JavadocClones_"+sourceFolderID+".csv");
                 writer.append("Class");
                 writer.append(';');
@@ -101,6 +102,7 @@ public class JavadocClonesFinder {
                     List<DocumentedExecutable> executables = documentedType.getDocumentedExecutables();
                     for (int i = 0; i < executables.size(); i++) {
                         DocumentedExecutable first = executables.get(i);
+                        // FIXME bug? Why i+1?
                         for (int j = i + 1; j < executables.size(); j++) {
                             DocumentedExecutable second = executables.get(j);
 
@@ -118,35 +120,10 @@ public class JavadocClonesFinder {
 
                                 freeTextCloneCheck(writer, className, first, second, legit);
                                 returnTagCloneCheck(writer, className, first, second, legit);
-
-                                for (ParamTag firstParamTag : first.paramTags()) {
-                                    String cleanFirst = firstParamTag
-                                            .getComment()
-                                            .getText()
-                                            .trim()
-                                            .replaceAll("\n ", "");
-                                    if (!cleanFirst.isEmpty()) {
-                                        for (ParamTag secParamTag : second.paramTags()) {
-                                            paramTagsCloneCheck(writer, className, firstSignature, secondSignature,
-                                                    legit, firstParamTag, secParamTag);
-
-                                        }
-                                    }
-                                }
-
-                                for (ThrowsTag firstThrowTag : first.throwsTags()) {
-                                    String cleanFirst = firstThrowTag.getComment()
-                                            .getText()
-                                            .trim()
-                                            .replaceAll("\n ", "");
-                                    if (!cleanFirst.isEmpty()) {
-                                        for (ThrowsTag secThrowTag : second.throwsTags()) {
-                                            throwsTagCloneCheck(writer, className, firstSignature, secondSignature,
-                                                    firstThrowTag, secThrowTag, legit);
-                                        }
-                                    }
-                                }
+                                paramTagsCloneCheck(writer, className, first, second, firstSignature, secondSignature, legit);
+                                exTagsCloneCheck(writer, className, first, second, firstSignature, secondSignature, legit);
                             }else{
+                                // A whole clone is never legitimate (-> false)
                                 wholeClonePrint(writer, className, first, second, false, firstJavadoc);
                             }
                         }
@@ -154,6 +131,38 @@ public class JavadocClonesFinder {
                 }
             }catch(IOException e){
                 //do nothing
+            }
+        }
+    }
+
+    private static void exTagsCloneCheck(FileWriter writer, String className, DocumentedExecutable first, DocumentedExecutable second, String firstSignature, String secondSignature, boolean legit) throws IOException {
+        for (ThrowsTag firstThrowTag : first.throwsTags()) {
+            String cleanFirst = firstThrowTag.getComment()
+                    .getText()
+                    .trim()
+                    .replaceAll("\n ", "");
+            if (!cleanFirst.isEmpty()) {
+                for (ThrowsTag secThrowTag : second.throwsTags()) {
+                    throwsTagCloneCheck(writer, className, firstSignature, secondSignature,
+                            firstThrowTag, secThrowTag, legit);
+                }
+            }
+        }
+    }
+
+    private static void paramTagsCloneCheck(FileWriter writer, String className, DocumentedExecutable first, DocumentedExecutable second, String firstSignature, String secondSignature, boolean legit) throws IOException {
+        for (ParamTag firstParamTag : first.paramTags()) {
+            String cleanFirst = firstParamTag
+                    .getComment()
+                    .getText()
+                    .trim()
+                    .replaceAll("\n ", "");
+            if (!cleanFirst.isEmpty()) {
+                for (ParamTag secParamTag : second.paramTags()) {
+                    paramTagsCloneCheck(writer, className, firstSignature, secondSignature,
+                            legit, firstParamTag, secParamTag);
+
+                }
             }
         }
     }
@@ -213,12 +222,15 @@ public class JavadocClonesFinder {
             // - same exception name;
             // - no shorter than 4 words;
             // - not generic condition ("if an error occurs" etc.)
-            // TODO NEW HEURISTIC
-//            legit = legit
-//                    && comment1.getText().split(" ").length > 3
-//                    && !comment1.getText().matches(genericConditionEx);
+            // ---------------------------
+            // -----> NEW HEURISTIC <-----
+            // ---------------------------
+            legit = legit
+                    && comment1.getText().split(" ").length > 3
+                    && !comment1.getText().matches(genericConditionEx);
+
             // ...unless it is thrown always
-//            legit = legit && !cleanFirst.equals("always");
+            legit = legit && !cleanFirst.equals("always");
 
 //          System.out.println("\n@param tag clone: " + firstParamTag.getComment().getText() + "\n" +
 //          " among " + first.getSignature() + " \nand " + second.getSignature());
@@ -293,9 +305,12 @@ public class JavadocClonesFinder {
                                             DocumentedExecutable second,
                                             boolean legit) throws IOException {
         // Legitimate clone if overloading/overriding or if it's a return tag for same return type
-        // TODO NEW HEURISTIC
-//        boolean legit = legit
-//                || isSameReturnType(first, second);
+
+        // ---------------------------
+        // -----> NEW HEURISTIC <-----
+        // ---------------------------
+        // Same, non-primitive return type
+        legit = legit || isSameReturnType(first, second);
 
         if (first.returnTag() != null && second.returnTag() != null) {
             String firstComment = first.returnTag().getComment().getText();
