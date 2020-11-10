@@ -102,8 +102,10 @@ public class JavadocClonesFinder {
                     List<DocumentedExecutable> executables = documentedType.getDocumentedExecutables();
                     for (int i = 0; i < executables.size(); i++) {
                         DocumentedExecutable first = executables.get(i);
-                        // FIXME bug? Why i+1?
                         for (int j = i + 1; j < executables.size(); j++) {
+                            // i+1 to avoid comparing A and B and then again B and A
+                            // (in a positive case, it would count as 2 clones, while
+                            //  we actually count 1)
                             DocumentedExecutable second = executables.get(j);
 
                             String firstJavadoc = first.getWholeJavadocAsString();
@@ -112,7 +114,7 @@ public class JavadocClonesFinder {
                             String firstSignature = first.toString();
                             String secondSignature = second.toString();
 
-                            // TODO NEW HEURISTIC, BUT HOW TO EXCLUDE? JUST MUTE?
+                            
                             boolean wholeClone = isWholeClone(firstJavadoc, secondJavadoc);
                             if (!wholeClone) {
                                 // Not a whole comment clone. Overloading?
