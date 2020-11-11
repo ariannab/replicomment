@@ -21,23 +21,15 @@ public class JavadocClonesFinder {
 
     public static void main(String[] args) throws IOException {
         final JavadocExtractor javadocExtractor = new JavadocExtractor();
-//        List<String> sourceFolders = FileUtils.readLines(new File(
-//                JavadocClonesFinder.class.getResource("/sources.txt").getPath()));
+        List<String> sourceFolderNames = FileUtils.readLines(new File(
+                JavadocClonesFinder.class.getResource("/sources.txt").getPath()));
 
         Map<String,String> sourceFolders = new HashMap<>();
-        sourceFolders.put("guava", "/Users/arianna/toradocu/src/test/resources/guava-19.0-sources/");
-//        sourceFolders.put("lucene","/Users/arianna/comment-clones/javadoclones/src/resources/src/lucene-core-7.2.1-sources/");
-//        sourceFolders.put("hadoop","/Users/arianna/comment-clones/javadoclones/src/resources/src/hadoop-2.6.5-src/" +
-//                "hadoop-common-project/hadoop-common/src/main/java/");
-//        sourceFolders.put("hadoop-hdfs",
-//                "/Users/arianna/comment-clones/javadoclones/src/resources/src/hadoop-2.6.5-src/hadoop-hdfs-project/" +
-//                        "hadoop-hdfs/src/main/java/");
-//        sourceFolders.put("elastic", "/Users/arianna/comment-clones/javadoclones/src/resources/src/elasticsearch-6.1.1-sources/");
-//        sourceFolders.put("vertx", "/Users/arianna/comment-clones/javadoclones/src/resources/src/vertx-core-3.5.0-sources/");
-//        sourceFolders.put("spring", "/Users/arianna/comment-clones/javadoclones/src/resources/src/spring-core-5.0.2-sources/");
-//        sourceFolders.put("log4j", "/Users/arianna/comment-clones/javadoclones/src/resources/src/log4j-1.2.17-sources/");
-//        sourceFolders.put("solr", "/Users/arianna/comment-clones/javadoclones/src/resources/src/solr-solrj-7.1.0-sources/");
-//        sourceFolders.put("rx", "/Users/arianna/comment-clones/javadoclones/src/resources/src/rxjava-1.3.5-sources/");
+        
+        for(String source : sourceFolderNames){
+            String[] tokens = source.split(":");
+            sourceFolders.put(tokens[0], tokens[1]);
+        }
 
         for(String sourceFolderID : sourceFolders.keySet()){
             //Collect all sources
