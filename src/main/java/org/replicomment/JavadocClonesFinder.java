@@ -58,8 +58,11 @@ public class JavadocClonesFinder {
                 System.out.println("[INFO] Analyzing "+sourceFolder+" ...");
                 analyzeClones(localCloneWriter, externalCloneWriter, javadocExtractor, sourceFolder, selectedClassNames);
 
+                // Close result files.
                 localCloneWriter.flush();
                 localCloneWriter.close();
+                externalCloneWriter.flush();
+                externalCloneWriter.close();
             }catch(java.lang.IllegalArgumentException exception){
                 System.out.println("[ERROR] Are you sure about this path? "+sourceFolder);
             }
@@ -120,11 +123,10 @@ public class JavadocClonesFinder {
                     List<DocumentedExecutable> localExecutables = documentedType.getDocumentedExecutables();
                     for (int i = 0; i < localExecutables.size(); i++) {
                         DocumentedExecutable first = localExecutables.get(i);
-                        clonesSearch(lwriter, className, className, localExecutables, i, first);
+                        clonesSearch(lwriter, className, "", localExecutables, i, first);
 
                         // FIXME "com.google" is just a test for guava
                         Reflections reflections = new Reflections("com.google");
-                        // We have to add more classes that may contain the method call
 
                         // TODO subtypes are classes, not sources. If we want to get their documentation,
                         // TODO too, we need to look again into our source files (look by name then parse
@@ -137,7 +139,7 @@ public class JavadocClonesFinder {
                                 if(selectedClassNames.contains(externalClass)){
                                     // Found subtype source.
                                     DocumentedType documentedSubType = javadocExtractor.extract(
-                                            className, sourcesFolder);
+                                            externalClass, sourcesFolder);
                                     if(documentedSubType!=null) {
                                         List<DocumentedExecutable> externalExecutables =
                                                 documentedSubType.getDocumentedExecutables();
@@ -148,8 +150,6 @@ public class JavadocClonesFinder {
                                 }
                             }
                         }
-
-
                     }
                 }
             }catch(IOException e){
@@ -159,12 +159,13 @@ public class JavadocClonesFinder {
     }
 
     private static void clonesSearch(FileWriter writer, String className, String externalClass,
-                                     List<DocumentedExecutable> localExecutables, int i, DocumentedExecutable first) throws IOException {
-        for (int j = i + 1; j < localExecutables.size(); j++) {
+                                     List<DocumentedExecutable> docExecutables, int i,
+                                     DocumentedExecutable first) throws IOException {
+        for (int j = i + 1; j < docExecutables.size(); j++) {
             // i+1 to avoid comparing A and B and then again B and A
             // (in a positive case, it would count as 2 clones, while
             //  we actually count 1)
-            DocumentedExecutable second = localExecutables.get(j);
+            DocumentedExecutable second = docExecutables.get(j);
 
             String firstJavadoc = first.getWholeJavadocAsString();
             String secondJavadoc = second.getWholeJavadocAsString();
@@ -217,7 +218,6 @@ public class JavadocClonesFinder {
         return !freeTextToFilter(first) && first.equals(second);
     }
 
-
     private static void exTagsSearch(FileWriter writer, String className, String externalClass, DocumentedExecutable first, DocumentedExecutable second, String firstSignature, String secondSignature, boolean legit) throws IOException {
         for (ThrowsTag firstThrowTag : first.throwsTags()) {
             String cleanFirst = firstThrowTag.getComment()
@@ -232,6 +232,7 @@ public class JavadocClonesFinder {
             }
         }
     }
+
     private static void throwsTagCloneCheck(FileWriter writer,
                                             String className, String extClassName,
                                             String firstMethod,
