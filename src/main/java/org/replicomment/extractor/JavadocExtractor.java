@@ -27,7 +27,9 @@ import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
@@ -67,6 +69,7 @@ public final class JavadocExtractor {
       return null;
     }
 
+    final List<Executable> reflectionExecutables = getExecutables(clazz);
     // Obtain executable members (constructors and methods) in the source code.
     final ImmutablePair<String, String> fileNameAndSimpleName =
         getFileNameAndSimpleName(clazz, className);
@@ -75,13 +78,17 @@ public final class JavadocExtractor {
         sourcePath + File.separator + fileName.replaceAll("\\.", File.separator) + ".java";
     final String simpleName = fileNameAndSimpleName.getRight();
     final List<CallableDeclaration<?>> sourceExecutables = getExecutables(simpleName, sourceFile);
-
+    Map<Executable, CallableDeclaration<?>> executablesMap =
+            mapExecutables(reflectionExecutables, sourceExecutables, className);
     if(!sourceExecutables.isEmpty()) {
       // Create the list of ExecutableMembers.
       List<String> classesInPackage = getClassesInSamePackage(className, sourceFile);
       List<DocumentedExecutable> documentedExecutables =
               new ArrayList<>(sourceExecutables.size());
-      for (CallableDeclaration<?> sourceCallable : sourceExecutables) {
+
+      for (Map.Entry<Executable, CallableDeclaration<?>> entry : executablesMap.entrySet()) {
+        final Executable reflectionMember = entry.getKey();
+        final CallableDeclaration<?> sourceCallable = entry.getValue();
         final List<DocumentedParameter> parameters =
                 createDocumentedParameters(
                         sourceCallable.getParameters());
@@ -113,12 +120,22 @@ public final class JavadocExtractor {
         }
         if(sourceCallable instanceof MethodDeclaration){
           documentedExecutables.add(new DocumentedExecutable(
-                  sourceCallable.getName(), ((MethodDeclaration) sourceCallable).getType().asString(),
-                  sourceCallable.getSignature(), parameters, blockTags, parsedFreeText));
+                  sourceCallable.getName(),
+                  ((MethodDeclaration) sourceCallable).getType().asString(),
+                  sourceCallable.getSignature(),
+                  reflectionMember,
+                  parameters,
+                  blockTags,
+                  parsedFreeText));
         }else {
           documentedExecutables.add(new DocumentedExecutable(
-                  sourceCallable.getName(), "", sourceCallable.getSignature(), parameters,
-                  blockTags, parsedFreeText));
+                  sourceCallable.getName(),
+                  "",
+                  sourceCallable.getSignature(),
+                  reflectionMember,
+                  parameters,
+                  blockTags,
+                  parsedFreeText));
         }
       }
 
@@ -658,5 +675,102 @@ public final class JavadocExtractor {
       node = nodeOpt.get();
     }
     return (CompilationUnit) node;
+  }
+
+  /**
+   * Maps reflection executable members to source code executable members.
+   *
+   * @param reflectionExecutables the list of reflection members
+   * @param sourceExecutables the list of source code members
+   * @param className name of the class containing the executables
+   * @return a map holding the correspondences
+   */
+  private Map<Executable, CallableDeclaration<?>> mapExecutables(
+          List<Executable> reflectionExecutables,
+          List<CallableDeclaration<?>> sourceExecutables,
+          String className) {
+
+    filterOutGeneratedConstructors(reflectionExecutables, sourceExecutables, className);
+    filterOutEnumMethods(reflectionExecutables, sourceExecutables);
+
+    if (reflectionExecutables.size() != sourceExecutables.size()) {
+      // TODO Add the differences to the error message to better characterize the error.
+      throw new IllegalArgumentException("Error: Provided lists have different size.");
+    }
+
+    Map<Executable, CallableDeclaration<?>> map = new LinkedHashMap<>(reflectionExecutables.size());
+    for (CallableDeclaration<?> sourceCallable : sourceExecutables) {
+      List<Executable> matches =
+              reflectionExecutables
+                      .stream()
+                      .filter(
+                              e ->
+                                      getSimpleNameOfExecutable(e.getName(), e instanceof Constructor)
+                                              .equals(sourceCallable.getName().asString())
+                                              && sameParamTypes(e.getParameters(), sourceCallable.getParameters()))
+                      .collect(toList());
+      if (matches.size() < 1) {
+        throw new AssertionError(
+                "Cannot find reflection executable member corresponding to "
+                        + sourceCallable.getSignature());
+      }
+      if (matches.size() > 1) {
+        matches = skimMultipleMatches(matches, sourceCallable.getModifiers());
+        if (matches.size() > 1) {
+          throw new AssertionError(
+                  "Found multiple reflection executable members corresponding to "
+                          + sourceCallable.getSignature()
+                          + ". Matching executable members are:\n"
+                          + Arrays.toString(matches.toArray()));
+        }
+      }
+      map.put(matches.get(0), sourceCallable);
+    }
+    return map;
+  }
+
+  private void filterOutEnumMethods(
+          List<Executable> reflectionExecutables, List<CallableDeclaration<?>> sourceExecutables) {
+    final List<String> sourceExecutableNames =
+            sourceExecutables.stream().map(it -> it.getName().asString()).collect(toList());
+    // Remove values() method.
+    reflectionExecutables.removeIf(
+            it -> {
+              final String executableName = it.getName();
+              return executableName.equals("values")
+                      && !sourceExecutableNames.contains(executableName)
+                      && it.getParameterCount() == 0;
+            });
+    // Remove valueOf(java.lang.String) method.
+    reflectionExecutables.removeIf(
+            it -> {
+              final String executableName = it.getName();
+              return executableName.equals("valueOf")
+                      && !sourceExecutableNames.contains(executableName)
+                      && it.getParameterCount() == 1
+                      && it.getParameters()[0].getType().getName().equals("java.lang.String");
+            });
+  }
+
+  private List<Executable> skimMultipleMatches(
+          List<Executable> matches, NodeList<com.github.javaparser.ast.Modifier> sModifiers) {
+
+    List<Executable> result = new ArrayList<>();
+    for (Executable match : matches) {
+      // Skim between simple public methods and public final methods
+      int eModifiers = match.getModifiers();
+      if (Modifier.isPublic(eModifiers)
+              && Modifier.isFinal(eModifiers)
+              && sModifiers.contains(com.github.javaparser.ast.Modifier.finalModifier())
+              && sModifiers.contains(com.github.javaparser.ast.Modifier.publicModifier())) {
+        result.add(match);
+        return result;
+      }
+    }
+    // Skim deprecated methods
+    return matches
+            .stream()
+            .filter(field -> field.getAnnotation(Deprecated.class) != null)
+            .collect(toList());
   }
 }

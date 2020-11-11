@@ -4,6 +4,7 @@ import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.ast.expr.SimpleName;
 import org.replicomment.util.Checks;
 
+import java.lang.reflect.Executable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -16,7 +17,7 @@ import java.util.Objects;
 public final class DocumentedExecutable {
 
   /** Reflection executable of this DocumentedExecutable. */
-//  private final Executable executable;
+  private final Executable executable;
   /** Parameter list. */
   private final List<DocumentedParameter> parameters;
   private final SimpleName name;
@@ -33,7 +34,16 @@ public final class DocumentedExecutable {
     return this.returnType;
   }
 
-  /** Represents the @param, @return, and @throws tags of an executable member. */
+  /**
+   * Returns the class in which this executable member is declared.
+   *
+   * @return the class in which this executable member is declared
+   */
+  public Class<?> getDeclaringClass() {
+    return executable.getDeclaringClass();
+  }
+
+    /** Represents the @param, @return, and @throws tags of an executable member. */
   public static class BlockTags {
     /** Javadoc @param tags of this executable member. */
     private final List<ParamTag> paramTags;
@@ -125,7 +135,10 @@ public final class DocumentedExecutable {
    * @param blockTags the Javadoc comments introduced by block tags (e.g., {@code @param},
  *     {@code @return}) associated with this executable member
    */
-  DocumentedExecutable(SimpleName name, String returnType, CallableDeclaration.Signature signature, List<DocumentedParameter> parameters, BlockTags blockTags, String javadocFreeText) {
+  DocumentedExecutable(SimpleName name, String returnType,
+                       CallableDeclaration.Signature signature,
+                       Executable executable, List<DocumentedParameter> parameters,
+                       BlockTags blockTags, String javadocFreeText) {
 //    Checks.nonNullParameter(executable, "executable");
     Checks.nonNullParameter(parameters, "parameters");
 
@@ -137,6 +150,7 @@ public final class DocumentedExecutable {
     this.parameters = parameters;
     this.javadocFreeText = javadocFreeText;
     this.tags = blockTags;
+    this.executable = executable;
   }
 
   /**
