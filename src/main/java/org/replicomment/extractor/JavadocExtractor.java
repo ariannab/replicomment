@@ -426,7 +426,7 @@ public final class JavadocExtractor {
       executables.removeIf(Executable::isSynthetic);
       executables.removeIf(e -> Modifier.isPrivate(e.getModifiers())); // Ignore private members.
       return executables;
-    }catch(Exception e){
+    }catch(NoClassDefFoundError e){
       //nothing
       return Collections.EMPTY_LIST;
     }

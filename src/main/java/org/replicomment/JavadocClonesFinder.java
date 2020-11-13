@@ -117,35 +117,61 @@ public class JavadocClonesFinder {
                         DocumentedExecutable first = localExecutables.get(i);
                         clonesSearch(lwriter, className, "", localExecutables, i, first);
 
-                        // FIXME "com.google" is just a test for guava
-                        Reflections reflections = new Reflections("com.google");
+//                        exploreReflectionHierarchy(ewriter, javadocExtractor, sourcesFolder, selectedClassNames, className, first);
+                    }
+                }
+            }catch(Exception e){
+                //do nothing
+            }
+        }
+    }
 
-                        // TODO subtypes are classes, not sources. If we want to get their documentation,
-                        // TODO too, we need to look again into our source files (look by name then parse
-                        // TODO w/ Javaparser. I hope there's an elegant way to do all this.
-                        Set<Class<?>> subTypes = (Set<Class<?>>) reflections.getSubTypesOf(first.getDeclaringClass());
-                        if(!subTypes.isEmpty()){
-                            // We found a bunch of subtypes. Time to retrieve their doc.
-                            for(Class<?> subType : subTypes){
-                                String externalClass = subType.getName();
-                                if(selectedClassNames.contains(externalClass)){
-                                    // Found subtype source.
-                                    DocumentedType documentedSubType = javadocExtractor.extract(
-                                            externalClass, sourcesFolder);
-                                    if(documentedSubType!=null) {
-                                        List<DocumentedExecutable> externalExecutables =
-                                                documentedSubType.getDocumentedExecutables();
-                                        for (int j = 0; j < externalExecutables.size(); j++) {
-                                            clonesSearch(ewriter, className, externalClass, externalExecutables, j, first);
-                                        }
-                                    }
-                                }
+    /**
+     * Finds clones in subtypes by means of reflection. A pretty expensive approach, not advised.
+     *
+     * @param ewriter the external clones writer
+     * @param javadocExtractor javadoc extractor to extract source comments
+     * @param sourcesFolder the folders from which to grab sources
+     * @param selectedClassNames class names we are looking for in sources
+     * @param className the class for which we need subtypes
+     * @param first the first documented executable for which to fetch clones
+     * @throws IOException if cannot read reflection prefixes file
+     */
+    private static void exploreReflectionHierarchy(FileWriter ewriter, JavadocExtractor javadocExtractor, String sourcesFolder, List<String> selectedClassNames, String className, DocumentedExecutable first) throws IOException {
+        List<String> reflectionPrefixList = FileUtils.readLines(new File(
+                JavadocClonesFinder.class.getResource("/reflections.txt").getPath()));
+
+        Map<String,String> reflectionPrefixes = new HashMap<>();
+
+        for(String source : reflectionPrefixList){
+            String[] tokens = source.split(":");
+            reflectionPrefixes.put(tokens[0], tokens[1]);
+        }
+
+        for(String refPrefix : reflectionPrefixes.keySet()) {
+            // TODO subtypes are classes, not sources. If we want to get their documentation,
+            // TODO too, we need to look again into our source files (look by name then parse
+            // TODO w/ Javaparser. I hope there's an elegant way to do all this.
+
+            Reflections reflections = new Reflections(refPrefix);
+            Set<Class<?>> subTypes = (Set<Class<?>>) reflections.getSubTypesOf(first.getDeclaringClass());
+            if (!subTypes.isEmpty()) {
+                // We found a bunch of subtypes. Time to retrieve their doc.
+                for (Class<?> subType : subTypes) {
+                    String externalClass = subType.getName();
+                    if (selectedClassNames.contains(externalClass)) {
+                        // Found subtype source.
+                        DocumentedType documentedSubType = javadocExtractor.extract(
+                                externalClass, sourcesFolder);
+                        if (documentedSubType != null) {
+                            List<DocumentedExecutable> externalExecutables =
+                                    documentedSubType.getDocumentedExecutables();
+                            for (int j = 0; j < externalExecutables.size(); j++) {
+                                clonesSearch(ewriter, className, externalClass, externalExecutables, j, first);
                             }
                         }
                     }
                 }
-            }catch(IOException e){
-                //do nothing
             }
         }
     }
