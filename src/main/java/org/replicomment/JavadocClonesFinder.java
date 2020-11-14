@@ -66,7 +66,7 @@ public class JavadocClonesFinder {
         writer.append("Class");
         writer.append(';');
         if(externalClone){
-            writer.append("Class 2");
+            writer.append("Extended Class");
             writer.append(';');
         }
         writer.append("Method1");
@@ -135,10 +135,6 @@ public class JavadocClonesFinder {
         String packageName = className.substring(0, className.lastIndexOf("."));
 
         for(ClassOrInterfaceType superType : extendedTypes) {
-            // TODO subtypes are classes, not sources. If we want to get their documentation,
-            // TODO too, we need to look again into our source files (look by name then parse
-            // TODO w/ Javaparser. I hope there's an elegant way to do all this.
-
             // We found a bunch of subtypes. Time to retrieve their doc.
             String externalClass = packageName + "." + superType.getNameAsString();
             if (selectedClassNames.contains(externalClass)) {
@@ -238,16 +234,22 @@ public class JavadocClonesFinder {
                         second, firstSignature, secondSignature, legit);
             }else{
                 // A whole clone is never legitimate (-> false)
-                wholeClonePrint(writer, className, first, second, false, firstJavadoc);
+                wholeClonePrint(writer, className, externalClass, first, second, false, firstJavadoc);
             }
         }
     }
 
-    private static void wholeClonePrint(FileWriter writer, String className,
+
+
+    private static void wholeClonePrint(FileWriter writer, String className, String extClassName,
                                         DocumentedExecutable first, DocumentedExecutable second,
                                         boolean b, String firstJavadoc) throws IOException {
         writer.append(className);
         writer.append(';');
+        if(!"".equals(extClassName)){
+            writer.append(extClassName);
+            writer.append(';');
+        }
         writer.append(first.toString());
         writer.append(';');
         writer.append(second.toString());
@@ -349,7 +351,8 @@ public class JavadocClonesFinder {
         }
     }
 
-    private static void paramTagsSearch(FileWriter writer, String className,
+    private static void paramTagsSearch(FileWriter writer,
+                                        String className,
                                         String externalClass, DocumentedExecutable first,
                                         DocumentedExecutable second, String firstSignature,
                                         String secondSignature, boolean legit) throws IOException {
@@ -419,7 +422,8 @@ public class JavadocClonesFinder {
     }
 
     private static void returnTagCloneCheck(FileWriter writer,
-                                            String className, String extClassName,
+                                            String className,
+                                            String extClassName,
                                             DocumentedExecutable first,
                                             DocumentedExecutable second,
                                             boolean legit) throws IOException {
@@ -467,7 +471,8 @@ public class JavadocClonesFinder {
     }
 
     private static void freeTextCloneCheck(FileWriter writer,
-                                           String className, String extClassName,
+                                           String className,
+                                           String extClassName,
                                            DocumentedExecutable first,
                                            DocumentedExecutable second,
                                            boolean legit) throws IOException {
