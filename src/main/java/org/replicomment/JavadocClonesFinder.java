@@ -1,5 +1,7 @@
 package org.replicomment;
 
+import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import org.reflections.Reflections;
 import org.replicomment.extractor.*;
 import org.apache.commons.io.FileUtils;
@@ -34,7 +36,7 @@ public class JavadocClonesFinder {
         for(String sourceFolderID : sourceFolders.keySet()){
             //Collect all sources
             String sourceFolder = sourceFolders.get(sourceFolderID);
-            try {
+
                 Collection<File> list = FileUtils.listFiles(
                         new File(
                                 sourceFolder),
@@ -55,9 +57,7 @@ public class JavadocClonesFinder {
                 localCloneWriter.close();
                 externalCloneWriter.flush();
                 externalCloneWriter.close();
-            }catch(java.lang.IllegalArgumentException exception){
-                System.out.println("[ERROR] Are you sure about this path? "+sourceFolder);
-            }
+
         }
         System.out.println("[INFO] Terminating now ...");
     }
@@ -118,63 +118,95 @@ public class JavadocClonesFinder {
                         clonesSearch(lwriter, className, "", localExecutables, i, first);
 
 //                        exploreReflectionHierarchy(ewriter, javadocExtractor, sourcesFolder, selectedClassNames, className, first);
+                        exploreSourceHierarchy(ewriter, javadocExtractor, sourcesFolder, selectedClassNames, className, documentedType, first);
                     }
                 }
-            }catch(Exception e){
-                //do nothing
+            }catch(IOException e){
+                e.printStackTrace();
             }
         }
     }
 
-    /**
-     * Finds clones in subtypes by means of reflection. A pretty expensive approach, not advised.
-     *
-     * @param ewriter the external clones writer
-     * @param javadocExtractor javadoc extractor to extract source comments
-     * @param sourcesFolder the folders from which to grab sources
-     * @param selectedClassNames class names we are looking for in sources
-     * @param className the class for which we need subtypes
-     * @param first the first documented executable for which to fetch clones
-     * @throws IOException if cannot read reflection prefixes file
-     */
-    private static void exploreReflectionHierarchy(FileWriter ewriter, JavadocExtractor javadocExtractor, String sourcesFolder, List<String> selectedClassNames, String className, DocumentedExecutable first) throws IOException {
-        List<String> reflectionPrefixList = FileUtils.readLines(new File(
-                JavadocClonesFinder.class.getResource("/reflections.txt").getPath()));
+    private static void exploreSourceHierarchy(FileWriter ewriter, JavadocExtractor javadocExtractor,
+                                               String sourcesFolder, List<String> selectedClassNames,
+                                               String className, DocumentedType documentedType,
+                                               DocumentedExecutable first) throws IOException {
+        NodeList<ClassOrInterfaceType> extendedTypes = documentedType.getSourceClass().getExtendedTypes();
+        String packageName = className.substring(0, className.lastIndexOf("."));
 
-        Map<String,String> reflectionPrefixes = new HashMap<>();
-
-        for(String source : reflectionPrefixList){
-            String[] tokens = source.split(":");
-            reflectionPrefixes.put(tokens[0], tokens[1]);
-        }
-
-        for(String refPrefix : reflectionPrefixes.keySet()) {
+        for(ClassOrInterfaceType superType : extendedTypes) {
             // TODO subtypes are classes, not sources. If we want to get their documentation,
             // TODO too, we need to look again into our source files (look by name then parse
             // TODO w/ Javaparser. I hope there's an elegant way to do all this.
 
-            Reflections reflections = new Reflections(refPrefix);
-            Set<Class<?>> subTypes = (Set<Class<?>>) reflections.getSubTypesOf(first.getDeclaringClass());
-            if (!subTypes.isEmpty()) {
-                // We found a bunch of subtypes. Time to retrieve their doc.
-                for (Class<?> subType : subTypes) {
-                    String externalClass = subType.getName();
-                    if (selectedClassNames.contains(externalClass)) {
-                        // Found subtype source.
-                        DocumentedType documentedSubType = javadocExtractor.extract(
-                                externalClass, sourcesFolder);
-                        if (documentedSubType != null) {
-                            List<DocumentedExecutable> externalExecutables =
-                                    documentedSubType.getDocumentedExecutables();
-                            for (int j = 0; j < externalExecutables.size(); j++) {
-                                clonesSearch(ewriter, className, externalClass, externalExecutables, j, first);
-                            }
-                        }
+            // We found a bunch of subtypes. Time to retrieve their doc.
+            String externalClass = packageName + "." + superType.getNameAsString();
+            if (selectedClassNames.contains(externalClass)) {
+                // Found subtype source.
+                DocumentedType documentedSubType = javadocExtractor.extract(
+                        externalClass, sourcesFolder);
+                if (documentedSubType != null) {
+                    List<DocumentedExecutable> externalExecutables =
+                            documentedSubType.getDocumentedExecutables();
+                    for (int j = 0; j < externalExecutables.size(); j++) {
+                        clonesSearch(ewriter, className, externalClass, externalExecutables, j, first);
                     }
                 }
             }
         }
     }
+
+//    /**
+//     * Finds clones in subtypes by means of reflection. A pretty expensive approach, not advised.
+//     *
+//     * @param ewriter the external clones writer
+//     * @param javadocExtractor javadoc extractor to extract source comments
+//     * @param sourcesFolder the folders from which to grab sources
+//     * @param selectedClassNames class names we are looking for in sources
+//     * @param className the class for which we need subtypes
+//     * @param first the first documented executable for which to fetch clones
+//     * @throws IOException if cannot read reflection prefixes file
+//     */
+//    private static void exploreReflectionHierarchy(FileWriter ewriter, JavadocExtractor javadocExtractor,
+//                                                   String sourcesFolder, List<String> selectedClassNames,
+//                                                   String className, DocumentedExecutable first) throws IOException {
+//        List<String> reflectionPrefixList = FileUtils.readLines(new File(
+//                JavadocClonesFinder.class.getResource("/reflections.txt").getPath()));
+//
+//        Map<String,String> reflectionPrefixes = new HashMap<>();
+//
+//        for(String source : reflectionPrefixList){
+//            String[] tokens = source.split(":");
+//            reflectionPrefixes.put(tokens[0], tokens[1]);
+//        }
+//
+//        for(String refPrefix : reflectionPrefixes.keySet()) {
+//            // TODO subtypes are classes, not sources. If we want to get their documentation,
+//            // TODO too, we need to look again into our source files (look by name then parse
+//            // TODO w/ Javaparser. I hope there's an elegant way to do all this.
+//
+//            Reflections reflections = new Reflections(refPrefix);
+//            Set<Class<?>> subTypes = (Set<Class<?>>) reflections.getSubTypesOf(first.getDeclaringClass());
+//            if (!subTypes.isEmpty()) {
+//                // We found a bunch of subtypes. Time to retrieve their doc.
+//                for (Class<?> subType : subTypes) {
+//                    String externalClass = subType.getName();
+//                    if (selectedClassNames.contains(externalClass)) {
+//                        // Found subtype source.
+//                        DocumentedType documentedSubType = javadocExtractor.extract(
+//                                externalClass, sourcesFolder);
+//                        if (documentedSubType != null) {
+//                            List<DocumentedExecutable> externalExecutables =
+//                                    documentedSubType.getDocumentedExecutables();
+//                            for (int j = 0; j < externalExecutables.size(); j++) {
+//                                clonesSearch(ewriter, className, externalClass, externalExecutables, j, first);
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     private static void clonesSearch(FileWriter writer, String className, String externalClass,
                                      List<DocumentedExecutable> docExecutables, int i,
@@ -552,8 +584,10 @@ public class JavadocClonesFinder {
      */
     private static List<String> getClassesInFolder(Collection<File> list, String path) {
         List<String> selectedClassNames = new ArrayList<>();
-        int i = 0;
         for (File file : list) {
+            if (!file.getName().endsWith(".java") || file.getName().contains("package-info")) {
+                continue;
+            }
             String fileName = file.getAbsolutePath();
             String[] unnecessaryPrefix = fileName.split(path);
             String className = unnecessaryPrefix[1].replaceAll("/",".");

@@ -69,84 +69,88 @@ public final class JavadocExtractor {
       return null;
     }
 
-    final List<Executable> reflectionExecutables = getExecutables(clazz);
+//    final List<Executable> reflectionExecutables = getExecutables(clazz);
     // Obtain executable members (constructors and methods) in the source code.
     final ImmutablePair<String, String> fileNameAndSimpleName =
         getFileNameAndSimpleName(clazz, className);
-    final String fileName = fileNameAndSimpleName.getLeft();
+    final String fullyQualName = fileNameAndSimpleName.getLeft();
     final String sourceFile =
-        sourcePath + File.separator + fileName.replaceAll("\\.", File.separator) + ".java";
+        sourcePath + File.separator + fullyQualName.replaceAll("\\.", File.separator) + ".java";
     final String simpleName = fileNameAndSimpleName.getRight();
-    final List<CallableDeclaration<?>> sourceExecutables = getExecutables(simpleName, sourceFile);
-    Map<Executable, CallableDeclaration<?>> executablesMap =
-            mapExecutables(reflectionExecutables, sourceExecutables, className);
-    if(!sourceExecutables.isEmpty()) {
-      // Create the list of ExecutableMembers.
-      List<String> classesInPackage = getClassesInSamePackage(className, sourceFile);
-      List<DocumentedExecutable> documentedExecutables =
-              new ArrayList<>(sourceExecutables.size());
 
-      for (Map.Entry<Executable, CallableDeclaration<?>> entry : executablesMap.entrySet()) {
-        final Executable reflectionMember = entry.getKey();
-        final CallableDeclaration<?> sourceCallable = entry.getValue();
-        final List<DocumentedParameter> parameters =
-                createDocumentedParameters(
-                        sourceCallable.getParameters());
-        BlockTags blockTags =
-                null;
-        try {
-          blockTags = createTags(classesInPackage, sourceCallable, parameters);
-        } catch (ClassNotFoundException e) {
-          return null;
-        }
+    ClassOrInterfaceDeclaration sourceClass = null;
+    List<String> classesInPackage = getClassesInSamePackage(className, sourceFile);
+    try {
+      sourceClass = getClassDefinition(simpleName, sourceFile);
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    }
+    if(sourceClass == null ){
+      return new DocumentedType(clazz, null, Collections.EMPTY_LIST);
+    }else {
+      final List<CallableDeclaration<?>> sourceExecutables = getExecutables(simpleName, sourceFile, sourceClass);
 
-        final Optional<JavadocComment> javadocComment = sourceCallable.getJavadocComment();
-        final Optional<Javadoc> javadoc = sourceCallable.getJavadoc();
-        String freeText = "";
-        String parsedFreeText = "";
-        if (javadocComment.isPresent()) {
-          freeText = javadocComment.get().getContent();
-          String[] freeTextLines = freeText.split("\n");
-          for (String line : freeTextLines) {
-            String trimmedLine = line.trim();
-            if (trimmedLine.startsWith("* @since") || trimmedLine.startsWith("* @param") ||
-                    trimmedLine.startsWith("* @return") || trimmedLine.startsWith("* @throws")) {
-              break;
-            } else if (trimmedLine.startsWith("* ")) {
-              parsedFreeText = parsedFreeText.concat(trimmedLine.substring(2, trimmedLine.length())) + " ";
-            }
+      if (!sourceExecutables.isEmpty()) {
+        // Create the list of ExecutableMembers.
+        List<DocumentedExecutable> documentedExecutables =
+                new ArrayList<>(sourceExecutables.size());
+        extractExecutablesDoc(classesInPackage, sourceExecutables, documentedExecutables);
+        //    log.info(
+        //        "Extracting Javadoc information of {} (in source folder {}) done", className, sourcePath);
 
-          }
-        }
-        if(sourceCallable instanceof MethodDeclaration){
-          documentedExecutables.add(new DocumentedExecutable(
-                  sourceCallable.getName(),
-                  ((MethodDeclaration) sourceCallable).getType().asString(),
-                  sourceCallable.getSignature(),
-                  reflectionMember,
-                  parameters,
-                  blockTags,
-                  parsedFreeText));
-        }else {
-          documentedExecutables.add(new DocumentedExecutable(
-                  sourceCallable.getName(),
-                  "",
-                  sourceCallable.getSignature(),
-                  reflectionMember,
-                  parameters,
-                  blockTags,
-                  parsedFreeText));
-        }
+        // Create the documented class.
+
+        return new DocumentedType(clazz, sourceClass, documentedExecutables);
       }
-
-      //    log.info(
-      //        "Extracting Javadoc information of {} (in source folder {}) done", className, sourcePath);
-
-      // Create the documented class.
-
-      return new DocumentedType(clazz, documentedExecutables);
     }
     return null;
+  }
+
+  private void extractExecutablesDoc(List<String> classesInPackage,
+                                     List<CallableDeclaration<?>> sourceExecutables,
+                                     List<DocumentedExecutable> documentedExecutables) {
+    for (CallableDeclaration<?> sourceCallable : sourceExecutables) {
+      // FIXME remove reflection executables, we don't need them. Just check sources. See previous versions of code.
+      final List<DocumentedParameter> parameters =
+              createDocumentedParameters(
+                      sourceCallable.getParameters());
+      BlockTags blockTags =
+              null;
+      try {
+        blockTags = createTags(classesInPackage, sourceCallable, parameters);
+      } catch (ClassNotFoundException e) {
+        return;
+      }
+
+      final Optional<JavadocComment> javadocComment = sourceCallable.getJavadocComment();
+      final Optional<Javadoc> javadoc = sourceCallable.getJavadoc();
+      String freeText = "";
+      String parsedFreeText = "";
+      if (javadocComment.isPresent()) {
+        freeText = javadocComment.get().getContent();
+        String[] freeTextLines = freeText.split("\n");
+        for (String line : freeTextLines) {
+          String trimmedLine = line.trim();
+          if (trimmedLine.startsWith("* @since") || trimmedLine.startsWith("* @param") ||
+                  trimmedLine.startsWith("* @return") || trimmedLine.startsWith("* @throws")) {
+            break;
+          } else if (trimmedLine.startsWith("* ")) {
+            parsedFreeText = parsedFreeText.concat(trimmedLine.substring(2, trimmedLine.length())) + " ";
+          }
+
+        }
+      }
+      if(sourceCallable instanceof MethodDeclaration){
+        documentedExecutables.add(new DocumentedExecutable(
+                sourceCallable.getName(), ((MethodDeclaration) sourceCallable).getType().asString(),
+                sourceCallable.getSignature(), parameters, blockTags, parsedFreeText));
+      }else {
+
+        documentedExecutables.add(new DocumentedExecutable(
+                sourceCallable.getName(), "", sourceCallable.getSignature(), parameters,
+                blockTags, parsedFreeText));
+      }
+    }
   }
 
   private ImmutablePair<String, String> getFileNameAndSimpleName(Class<?> clazz, String className) {
@@ -440,10 +444,10 @@ public final class JavadocExtractor {
    * @return non private-callables of the class with name {@code className}
    * @throws FileNotFoundException if the source path couldn't be resolved
    */
-  public List<CallableDeclaration<?>> getExecutables(String className, String sourcePath) {
+  public List<CallableDeclaration<?>> getExecutables(String className, String sourcePath,
+                                                     ClassOrInterfaceDeclaration sourceClass) {
     final List<CallableDeclaration<?>> sourceExecutables = new ArrayList<>();
     try {
-      final ClassOrInterfaceDeclaration sourceClass = getClassDefinition(className, sourcePath);
       if (sourceClass == null) {
         return Collections.EMPTY_LIST;
       }
@@ -457,8 +461,8 @@ public final class JavadocExtractor {
     }
   }
 
-  private ClassOrInterfaceDeclaration getClassDefinition(String className, String sourcePath)
-      throws FileNotFoundException {
+  private ClassOrInterfaceDeclaration getClassDefinition(String className,
+                                                         String sourcePath) throws FileNotFoundException {
     final CompilationUnit cu = JavaParser.parse(new File(sourcePath));
 
     String nestedClassName = "";
@@ -495,8 +499,10 @@ public final class JavadocExtractor {
     if(enumDefinitionOpt.isPresent()){
       return null;
     }
-    throw new IllegalArgumentException(
-        "Impossible to find a class or interface with name " + className + " in " + sourcePath);
+//    throw new IllegalArgumentException(
+//        "Impossible to find a class or interface with name " + className + " in " + sourcePath);
+    // FIXME not the best solution, but keep it like that for now.
+    return null;
   }
 
   /**
@@ -676,58 +682,59 @@ public final class JavadocExtractor {
     }
     return (CompilationUnit) node;
   }
-
-  /**
-   * Maps reflection executable members to source code executable members.
-   *
-   * @param reflectionExecutables the list of reflection members
-   * @param sourceExecutables the list of source code members
-   * @param className name of the class containing the executables
-   * @return a map holding the correspondences
-   */
-  private Map<Executable, CallableDeclaration<?>> mapExecutables(
-          List<Executable> reflectionExecutables,
-          List<CallableDeclaration<?>> sourceExecutables,
-          String className) {
-
-    filterOutGeneratedConstructors(reflectionExecutables, sourceExecutables, className);
-    filterOutEnumMethods(reflectionExecutables, sourceExecutables);
-
-    if (reflectionExecutables.size() != sourceExecutables.size()) {
-      // TODO Add the differences to the error message to better characterize the error.
-      throw new IllegalArgumentException("Error: Provided lists have different size.");
-    }
-
-    Map<Executable, CallableDeclaration<?>> map = new LinkedHashMap<>(reflectionExecutables.size());
-    for (CallableDeclaration<?> sourceCallable : sourceExecutables) {
-      List<Executable> matches =
-              reflectionExecutables
-                      .stream()
-                      .filter(
-                              e ->
-                                      getSimpleNameOfExecutable(e.getName(), e instanceof Constructor)
-                                              .equals(sourceCallable.getName().asString())
-                                              && sameParamTypes(e.getParameters(), sourceCallable.getParameters()))
-                      .collect(toList());
-      if (matches.size() < 1) {
-        throw new AssertionError(
-                "Cannot find reflection executable member corresponding to "
-                        + sourceCallable.getSignature());
-      }
-      if (matches.size() > 1) {
-        matches = skimMultipleMatches(matches, sourceCallable.getModifiers());
-        if (matches.size() > 1) {
-          throw new AssertionError(
-                  "Found multiple reflection executable members corresponding to "
-                          + sourceCallable.getSignature()
-                          + ". Matching executable members are:\n"
-                          + Arrays.toString(matches.toArray()));
-        }
-      }
-      map.put(matches.get(0), sourceCallable);
-    }
-    return map;
-  }
+//
+//  /**
+//   * Maps reflection executable members to source code executable members.
+//   *
+//   * @param reflectionExecutables the list of reflection members
+//   * @param sourceExecutables the list of source code members
+//   * @param className name of the class containing the executables
+//   * @return a map holding the correspondences
+//   */
+//  private Map<Executable, CallableDeclaration<?>> mapExecutables(
+//          List<Executable> reflectionExecutables,
+//          List<CallableDeclaration<?>> sourceExecutables,
+//          String className) {
+//
+//    filterOutGeneratedConstructors(reflectionExecutables, sourceExecutables, className);
+//    filterOutEnumMethods(reflectionExecutables, sourceExecutables);
+//
+//    if (reflectionExecutables.size() != sourceExecutables.size()) {
+//      throw new IllegalArgumentException("Error: Provided lists have different size.");
+//    }
+//
+//    Map<Executable, CallableDeclaration<?>> map = new LinkedHashMap<>(reflectionExecutables.size());
+//    for (CallableDeclaration<?> sourceCallable : sourceExecutables) {
+//      List<Executable> matches =
+//              reflectionExecutables
+//                      .stream()
+//                      .filter(
+//                              e ->
+//                                      getSimpleNameOfExecutable(e.getName(), e instanceof Constructor)
+//                                              .equals(sourceCallable.getName().asString())
+//                                              && sameParamTypes(e.getParameters(), sourceCallable.getParameters()))
+//                      .collect(toList());
+//      if (matches.size() < 1) {
+//        throw new AssertionError(
+//                "Cannot find reflection executable member corresponding to "
+//                        + sourceCallable.getSignature());
+//      }
+//      if (matches.size() > 1) {
+//        matches = skimMultipleMatches(matches, sourceCallable);
+//        if (matches.size() > 1) {
+//          throw new AssertionError(
+//                  "Found multiple reflection executable members corresponding to "
+//                          + sourceCallable.getSignature()
+//                          + ". Matching executable members are:\n"
+//                          + Arrays.toString(matches.toArray()));
+//        }
+//      }
+//      if(matches.size() > 0 )
+//        // FIXME should fix problem in skimMultipleMatches, ignoring for now.
+//        map.put(matches.get(0), sourceCallable);
+//    }
+//    return map;
+//  }
 
   private void filterOutEnumMethods(
           List<Executable> reflectionExecutables, List<CallableDeclaration<?>> sourceExecutables) {
@@ -753,9 +760,11 @@ public final class JavadocExtractor {
   }
 
   private List<Executable> skimMultipleMatches(
-          List<Executable> matches, NodeList<com.github.javaparser.ast.Modifier> sModifiers) {
+          List<Executable> matches, CallableDeclaration<?> sourceCallable) {
 
+    // FIXME methods with array args VS variable args are not distinguished here.
     List<Executable> result = new ArrayList<>();
+    NodeList<com.github.javaparser.ast.Modifier> sModifiers = sourceCallable.getModifiers();
     for (Executable match : matches) {
       // Skim between simple public methods and public final methods
       int eModifiers = match.getModifiers();

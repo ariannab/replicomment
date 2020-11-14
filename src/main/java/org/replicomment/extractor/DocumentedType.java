@@ -1,5 +1,6 @@
 package org.replicomment.extractor;
 
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import org.replicomment.util.Checks;
 
 import java.util.List;
@@ -10,20 +11,25 @@ public final class DocumentedType {
 
   /** Documented class or interface (or enum, ...). */
   private final Class<?> documentedClass;
+  /** Source class as parsed by Javaparser. */
+  ClassOrInterfaceDeclaration sourceClass;
   /** Constructors and methods of this documented type. */
   private final List<DocumentedExecutable> documentedExecutables;
-
   /**
    * Creates a new DocumentedType wrapping the given class and with the given constructors and
    * methods.
    *
    * @param documentedClass the {@code Class} of this documentedClass
+   * @param sourceClass
    * @param documentedExecutables constructors and methods of {@code documentedClass}
    * @throws NullPointerException if either documentedClass or documentedExecutables is null
    */
-  DocumentedType(Class<?> documentedClass, List<DocumentedExecutable> documentedExecutables) {
+  DocumentedType(Class<?> documentedClass, ClassOrInterfaceDeclaration sourceClass,
+                 List<DocumentedExecutable> documentedExecutables) {
     Checks.nonNullParameter(documentedClass, "documentedClass");
     Checks.nonNullParameter(documentedExecutables, "documentedExecutables");
+//    Checks.nonNullParameter(sourceClass, "sourceClass");
+    this.sourceClass = sourceClass;
     this.documentedClass = documentedClass;
     this.documentedExecutables = documentedExecutables;
   }
@@ -35,6 +41,10 @@ public final class DocumentedType {
    */
   Class<?> getDocumentedClass() {
     return documentedClass;
+  }
+
+  public ClassOrInterfaceDeclaration getSourceClass() {
+    return sourceClass;
   }
 
   /**

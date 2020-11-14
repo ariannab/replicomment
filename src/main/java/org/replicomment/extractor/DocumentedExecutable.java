@@ -17,7 +17,7 @@ import java.util.Objects;
 public final class DocumentedExecutable {
 
   /** Reflection executable of this DocumentedExecutable. */
-  private final Executable executable;
+//  private final Executable executable;
   /** Parameter list. */
   private final List<DocumentedParameter> parameters;
   private final SimpleName name;
@@ -39,9 +39,9 @@ public final class DocumentedExecutable {
    *
    * @return the class in which this executable member is declared
    */
-  public Class<?> getDeclaringClass() {
-    return executable.getDeclaringClass();
-  }
+//  public Class<?> getDeclaringClass() {
+//    return executable.getDeclaringClass();
+//  }
 
     /** Represents the @param, @return, and @throws tags of an executable member. */
   public static class BlockTags {
@@ -137,7 +137,7 @@ public final class DocumentedExecutable {
    */
   DocumentedExecutable(SimpleName name, String returnType,
                        CallableDeclaration.Signature signature,
-                       Executable executable, List<DocumentedParameter> parameters,
+                       List<DocumentedParameter> parameters,
                        BlockTags blockTags, String javadocFreeText) {
 //    Checks.nonNullParameter(executable, "executable");
     Checks.nonNullParameter(parameters, "parameters");
@@ -150,7 +150,6 @@ public final class DocumentedExecutable {
     this.parameters = parameters;
     this.javadocFreeText = javadocFreeText;
     this.tags = blockTags;
-    this.executable = executable;
   }
 
   /**
