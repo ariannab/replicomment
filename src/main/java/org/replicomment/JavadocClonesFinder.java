@@ -21,10 +21,13 @@ import java.util.Set;
 
 public class JavadocClonesFinder {
 
+    public static final JavadocExtractor javadocExtractor = new JavadocExtractor();
+    public static HashMap<String, DocumentedType> documentedTypes = new HashMap<>();
+
     public static void main(String[] args) throws IOException {
-        final JavadocExtractor javadocExtractor = new JavadocExtractor();
         List<String> sourceFolderNames = FileUtils.readLines(new File(
-                JavadocClonesFinder.class.getResource("/sources.txt").getPath()));
+                JavadocClonesFinder.class.getResource("/fake-source.txt").getPath()));
+//                JavadocClonesFinder.class.getResource("/sources.txt").getPath()));
 
         Map<String,String> sourceFolders = new HashMap<>();
         
@@ -43,26 +46,15 @@ public class JavadocClonesFinder {
                         new RegexFileFilter("(.*).java"),
                         TrueFileFilter.INSTANCE);
                 List<String> selectedClassNames  = getClassesInFolder(list, sourceFolder);
-                // Prepare results header
-                FileWriter localCloneWriter = new FileWriter("2020_JavadocClones_"+sourceFolderID+".csv");
-                FileWriter externalCloneWriter = new FileWriter("2020_JavadocClones_ext_"+sourceFolderID+".csv");
-                prepareCSVOutput(localCloneWriter, false);
-                prepareCSVOutput(externalCloneWriter, true);
 
                 System.out.println("[INFO] Analyzing "+sourceFolder+" ...");
-                analyzeClones(localCloneWriter, externalCloneWriter, javadocExtractor, sourceFolder, selectedClassNames);
-
-                // Close result files.
-                localCloneWriter.flush();
-                localCloneWriter.close();
-                externalCloneWriter.flush();
-                externalCloneWriter.close();
-
+                analyzeClones(sourceFolder, sourceFolderID, selectedClassNames);
         }
         System.out.println("[INFO] Terminating now ...");
     }
 
-    private static void prepareCSVOutput(FileWriter writer, boolean externalClone) throws IOException {
+    private static void prepareCSVOutput(FileWriter writer, boolean externalClone, boolean crossFile)
+            throws IOException {
         writer.append("Class");
         writer.append(';');
         if(externalClone){
@@ -87,47 +79,92 @@ public class JavadocClonesFinder {
 
     /**
      * Search for Javadoc clones and stores them.
-     *
-     * @param writer {@code FileWriter} where to store the clones
-     * @param javadocExtractor the {@code JavadocExtractor} that extracts the Javadocs
-     * @param sourcesFolder folder containing the Java sources to analyze
+     *  @param sourcesFolder folder containing the Java sources to analyze
      * @param selectedClassNames fully qualified names of the Java classes to be analyzed
      */
-    private static void analyzeClones(FileWriter lwriter, FileWriter ewriter,
-                                      JavadocExtractor javadocExtractor,
-                                      String sourcesFolder,
-                                      List<String> selectedClassNames){
+    private static void analyzeClones(String sourcesFolder, String sourceFolderID,
+                                      List<String> selectedClassNames) throws IOException {
+        // Prepare results header
+        FileWriter localCloneWriter = new FileWriter("2020_JavadocClones_"+sourceFolderID+".csv");
+        FileWriter externalCloneWriter = new FileWriter("2020_JavadocClones_ext_"+sourceFolderID+".csv");
+        FileWriter crossCloneWriter = new FileWriter("2020_JavadocClones_cf_"+sourceFolderID+".csv");
+        prepareCSVOutput(localCloneWriter, false, false);
+        prepareCSVOutput(externalCloneWriter, true, false);
+        prepareCSVOutput(externalCloneWriter, false, true);
+
         for(String className : selectedClassNames) {
             try {
-                DocumentedType documentedType = javadocExtractor.extract(
-                        className, sourcesFolder);
+                DocumentedType documentedType;
+
+                if(documentedTypes.containsKey(className)){
+                    documentedType = documentedTypes.get(className);
+                }else{
+                    documentedType = javadocExtractor.extract(
+                            className, sourcesFolder);
+                    documentedTypes.put(className, documentedType);
+                }
 
                 if (documentedType != null) {
 //                    System.out.println("\nIn class " + className + ":");
-                    // TODO here, each method from the SAME documented type is compared against
-                    // TODO all its other methods. How do we get the sub-types to extend the comparison?
-                    // TODO And, how should the comparison be carried out?
-                    // TODO Each method of type A' compared against each method of type A''?
-                    // TODO In this case we will encounter overriding, right?
-
-                    // TODO after retrieving the local executables, I also want to retrieve
-                    // TODO the external (sub-type) executables for the inner for.
                     List<DocumentedExecutable> localExecutables = documentedType.getDocumentedExecutables();
                     for (int i = 0; i < localExecutables.size(); i++) {
                         DocumentedExecutable first = localExecutables.get(i);
-                        clonesSearch(lwriter, className, "", localExecutables, i, first);
-
-//                        exploreReflectionHierarchy(ewriter, javadocExtractor, sourcesFolder, selectedClassNames, className, first);
-                        exploreSourceHierarchy(ewriter, javadocExtractor, sourcesFolder, selectedClassNames, className, documentedType, first);
+                        // Look for local (same-file) doc clones.
+                        clonesSearch(localCloneWriter, className, "", localExecutables, i, first);
+                        // Look for hierarchy doc clones.
+                        exploreSourceHierarchy(externalCloneWriter, sourcesFolder,
+                                selectedClassNames, className, documentedType, first);
+                        // Look for clones cross-file.
+                        crossFileClonesSearch(crossCloneWriter, sourcesFolder,
+                                className, selectedClassNames, first);
                     }
                 }
             }catch(IOException e){
                 e.printStackTrace();
             }
         }
+
+        // Close result files.
+        localCloneWriter.flush();
+        localCloneWriter.close();
+
+        externalCloneWriter.flush();
+        externalCloneWriter.close();
+
+        crossCloneWriter.flush();
+        crossCloneWriter.close();
     }
 
-    private static void exploreSourceHierarchy(FileWriter ewriter, JavadocExtractor javadocExtractor,
+    private static void crossFileClonesSearch(FileWriter crossCloneWriter,
+                                              String sourcesFolder,
+                                              String className,
+                                              List<String> selectedClassNames,
+                                              DocumentedExecutable first) throws IOException {
+        for(String externalClass : selectedClassNames){
+            DocumentedType documentedExtType;
+            if(!externalClass.equals(className)){
+
+                if(documentedTypes.containsKey(externalClass)){
+                    documentedExtType = documentedTypes.get(externalClass);
+                }else{
+                    documentedExtType = javadocExtractor.extract(
+                            externalClass, sourcesFolder);
+                    documentedTypes.put(externalClass, documentedExtType);
+                }
+
+                if (documentedExtType != null) {
+                    List<DocumentedExecutable> externalExecutables =
+                            documentedExtType.getDocumentedExecutables();
+                    for (int j = 0; j < externalExecutables.size(); j++) {
+                        clonesSearch(crossCloneWriter, className, externalClass, externalExecutables, j, first);
+                    }
+                }
+            }
+        }
+
+    }
+
+    private static void exploreSourceHierarchy(FileWriter ewriter,
                                                String sourcesFolder, List<String> selectedClassNames,
                                                String className, DocumentedType documentedType,
                                                DocumentedExecutable first) throws IOException {
@@ -137,10 +174,18 @@ public class JavadocClonesFinder {
         for(ClassOrInterfaceType superType : extendedTypes) {
             // We found a bunch of subtypes. Time to retrieve their doc.
             String externalClass = packageName + "." + superType.getNameAsString();
+            DocumentedType documentedSubType;
             if (selectedClassNames.contains(externalClass)) {
                 // Found subtype source.
-                DocumentedType documentedSubType = javadocExtractor.extract(
-                        externalClass, sourcesFolder);
+
+                if(documentedTypes.containsKey(externalClass)){
+                    documentedSubType = documentedTypes.get(externalClass);
+                }else{
+                    documentedSubType = javadocExtractor.extract(
+                            externalClass, sourcesFolder);
+                    documentedTypes.put(externalClass, documentedSubType);
+                }
+
                 if (documentedSubType != null) {
                     List<DocumentedExecutable> externalExecutables =
                             documentedSubType.getDocumentedExecutables();
@@ -177,10 +222,6 @@ public class JavadocClonesFinder {
 //        }
 //
 //        for(String refPrefix : reflectionPrefixes.keySet()) {
-//            // TODO subtypes are classes, not sources. If we want to get their documentation,
-//            // TODO too, we need to look again into our source files (look by name then parse
-//            // TODO w/ Javaparser. I hope there's an elegant way to do all this.
-//
 //            Reflections reflections = new Reflections(refPrefix);
 //            Set<Class<?>> subTypes = (Set<Class<?>>) reflections.getSubTypesOf(first.getDeclaringClass());
 //            if (!subTypes.isEmpty()) {
@@ -222,7 +263,6 @@ public class JavadocClonesFinder {
             boolean wholeClone = isWholeClone(firstJavadoc, secondJavadoc);
             if (!wholeClone) {
                 // Not a whole comment clone. Overloading?
-                // FIXME does this check work for overriding, too? If not, add one
                 boolean legit = isOverloading(first.getName(), second.getName());
 
                 // FIXME these methods need some refactoring, it's a lot of message chaining.
@@ -233,12 +273,22 @@ public class JavadocClonesFinder {
                 exTagsSearch(writer, className, externalClass, first,
                         second, firstSignature, secondSignature, legit);
             }else{
-                // A whole clone is never legitimate (-> false)
-                wholeClonePrint(writer, className, externalClass, first, second, false, firstJavadoc);
+                // A whole clone is never legitimate, unless it's overriding (assuming inherited method
+                // behaviour does not change, then doc also doesn't)
+                boolean legit = isOverriding(first.getName(), second.getName(), externalClass);
+                wholeClonePrint(writer, className, externalClass, first, second, legit, firstJavadoc);
             }
         }
     }
 
+    private static boolean isOverriding(String firstName, String secondName, String externalClass) {
+        if(!"".equals(externalClass)){
+            firstName = firstName.toLowerCase();
+            secondName = secondName.toLowerCase();
+            return firstName.equals(secondName);
+        }
+        return false;
+    }
 
 
     private static void wholeClonePrint(FileWriter writer, String className, String extClassName,
@@ -305,7 +355,6 @@ public class JavadocClonesFinder {
             String exceptionNameTwo = secondTag.getException();
             // Same exception name: could be a legitimate clone
             legit = legit || exceptionNameOne.equals(exceptionNameTwo);
-
 
             String genericConditionEx = "(if|for) (any|an) (error|problem|issue) (that|which)? (occurs|happens|raises)";
             // The following would be < 3 anyway
