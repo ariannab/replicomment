@@ -2,6 +2,7 @@ package org.replicomment;
 
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import org.apache.commons.lang3.StringUtils;
 import org.reflections.Reflections;
 import org.replicomment.extractor.*;
 import org.apache.commons.io.FileUtils;
@@ -111,12 +112,23 @@ public class JavadocClonesFinder {
                         DocumentedExecutable first = localExecutables.get(i);
                         // Look for local (same-file) doc clones.
                         clonesSearch(localCloneWriter, className, "", localExecutables, i, first);
+
                         // Look for hierarchy doc clones.
+                        NodeList<ClassOrInterfaceType> extendedTypes =
+                                documentedType.getSourceClass().getExtendedTypes();
                         exploreSourceHierarchy(externalCloneWriter, sourcesFolder,
-                                selectedClassNames, className, documentedType, first);
-                        // Look for clones cross-file.
+                                selectedClassNames, className, extendedTypes, first);
+
+                        // Finally, look for clones cross-file. NB excludes subtypes (addressed above).
+                        // Instead of passing selected selectedClassNames, exclude the supertypes already
+                        List<String> externalClasses = new ArrayList<>(selectedClassNames);
+                        String packageName = className.substring(0, className.lastIndexOf("."));
+                        for(ClassOrInterfaceType superType : extendedTypes){
+                            String externalClassName = packageName + "." + superType.getNameAsString();
+                            externalClasses.remove(externalClassName);
+                        }
                         crossFileClonesSearch(crossCloneWriter, sourcesFolder,
-                                className, selectedClassNames, first);
+                                className, externalClasses, first);
                     }
                 }
             }catch(IOException e){
@@ -165,10 +177,11 @@ public class JavadocClonesFinder {
     }
 
     private static void exploreSourceHierarchy(FileWriter ewriter,
-                                               String sourcesFolder, List<String> selectedClassNames,
-                                               String className, DocumentedType documentedType,
+                                               String sourcesFolder,
+                                               List<String> selectedClassNames,
+                                               String className,
+                                               NodeList<ClassOrInterfaceType> extendedTypes,
                                                DocumentedExecutable first) throws IOException {
-        NodeList<ClassOrInterfaceType> extendedTypes = documentedType.getSourceClass().getExtendedTypes();
         String packageName = className.substring(0, className.lastIndexOf("."));
 
         for(ClassOrInterfaceType superType : extendedTypes) {
@@ -310,7 +323,7 @@ public class JavadocClonesFinder {
         writer.append(';');
         writer.append("");
         writer.append(';');
-        writer.append(firstJavadoc.replaceAll(";", ","));
+        writer.append(StringUtils.replace(firstJavadoc,";", ","));
         writer.append(';');
         writer.append(String.valueOf(b));
         writer.append("\n");
@@ -322,10 +335,10 @@ public class JavadocClonesFinder {
 
     private static void exTagsSearch(FileWriter writer, String className, String externalClass, DocumentedExecutable first, DocumentedExecutable second, String firstSignature, String secondSignature, boolean legit) throws IOException {
         for (ThrowsTag firstThrowTag : first.throwsTags()) {
-            String cleanFirst = firstThrowTag.getComment()
+            String cleanFirst = StringUtils.replace(firstThrowTag.getComment()
                     .getText()
                     .trim()
-                    .replaceAll("\n ", "");
+                    ,"\n ", "");
             if (!cleanFirst.isEmpty()) {
                 for (ThrowsTag secThrowTag : second.throwsTags()) {
                     throwsTagCloneCheck(writer, className, externalClass, firstSignature, secondSignature,
@@ -346,8 +359,8 @@ public class JavadocClonesFinder {
         Comment comment1 = firstTag.getComment();
         Comment comment2 = secondTag.getComment();
 
-        String cleanFirst = comment1.getText().trim().replaceAll("\n ", "");
-        String cleanSecond = comment2.getText().trim().replaceAll("\n ", "");
+        String cleanFirst = StringUtils.replace(comment1.getText().trim(),"\n ", "");
+        String cleanSecond = StringUtils.replace(comment2.getText().trim(),"\n ", "");
 
         if (cleanFirst.equals(cleanSecond)) {
 
@@ -393,7 +406,7 @@ public class JavadocClonesFinder {
             writer.append(';');
             writer.append("");
             writer.append(';');
-            writer.append(comment1.getText().replaceAll(";", ","));
+            writer.append(StringUtils.replace(comment1.getText(),";", ","));
             writer.append(';');
             writer.append(String.valueOf(legit));
             writer.append("\n");
@@ -406,11 +419,11 @@ public class JavadocClonesFinder {
                                         DocumentedExecutable second, String firstSignature,
                                         String secondSignature, boolean legit) throws IOException {
         for (ParamTag firstParamTag : first.paramTags()) {
-            String cleanFirst = firstParamTag
+            String cleanFirst = StringUtils.replace(firstParamTag
                     .getComment()
                     .getText()
                     .trim()
-                    .replaceAll("\n ", "");
+                    ,"\n ", "");
             if (!cleanFirst.isEmpty()) {
                 for (ParamTag secParamTag : second.paramTags()) {
                     paramTagsSearch(writer, className, externalClass, firstSignature, secondSignature,
@@ -432,8 +445,8 @@ public class JavadocClonesFinder {
         Comment comment1 = firstTag.getComment();
         Comment comment2 = secondTag.getComment();
 
-        String cleanFirst = comment1.getText().trim().replaceAll("\n ", "");
-        String cleanSecond = comment2.getText().trim().replaceAll("\n ", "");
+        String cleanFirst = StringUtils.replace(comment1.getText().trim(),"\n ", "");
+        String cleanSecond = StringUtils.replace(comment2.getText().trim(),"\n ", "");
 
         String paramName1 = firstTag.getParamName();
         String paramName2 = secondTag.getParamName();
@@ -463,7 +476,7 @@ public class JavadocClonesFinder {
             writer.append(';');
             writer.append(paramType2 + " " + paramName2);
             writer.append(';');
-            writer.append(comment1.getText().replaceAll(";", ","));
+            writer.append(StringUtils.replace(comment1.getText(),";", ","));
             writer.append(';');
             writer.append(String.valueOf(legit));
             writer.append("\n");
@@ -486,10 +499,11 @@ public class JavadocClonesFinder {
 
         if (first.returnTag() != null && second.returnTag() != null) {
             String firstComment = first.returnTag().getComment().getText();
-            String cleanFirst = firstComment.trim().replaceAll("\n ", "");
+            String cleanFirst = StringUtils.replace(firstComment.trim(),"\n ", "");
 
             if (!cleanFirst.isEmpty()) {
-                String cleanSecond = second.returnTag().getComment().getText().trim().replaceAll("\n ", "");
+                String cleanSecond = StringUtils.replace(second.returnTag().getComment().getText().trim(),
+                        "\n ", "");
                 if (cleanFirst.equals(cleanSecond)) {
 //              System.out.println("\n@return tag clone: " + first.returnTag().getComment().getText() + "\n" +
 //               " among " + first.getSignature() + " \nand " + second.getSignature());
@@ -510,7 +524,7 @@ public class JavadocClonesFinder {
                     writer.append(';');
                     writer.append("");
                     writer.append(';');
-                    writer.append(firstComment.replaceAll(";", ","));
+                    writer.append(StringUtils.replace(firstComment,";", ","));
                     writer.append(';');
                     writer.append(String.valueOf(legit));
                     writer.append("\n");
@@ -526,8 +540,12 @@ public class JavadocClonesFinder {
                                            DocumentedExecutable second,
                                            boolean legit) throws IOException {
         if (!freeTextToFilter(first.getJavadocFreeText())) {
-            String cleanFirst = first.getJavadocFreeText().trim().replaceAll("\n ", "");
-            String cleanSecond = second.getJavadocFreeText().trim().replaceAll("\n ", "");
+            String cleanFirst = first.getJavadocFreeText().trim(); //.replaceAll("\n ", "");
+            String cleanSecond = second.getJavadocFreeText().trim(); //.replaceAll("\n ", "");
+
+            StringUtils.replace(cleanFirst, "\n ", "");
+            StringUtils.replace(cleanSecond, "\n ", "");
+
             if (cleanFirst.equals(cleanSecond)) {
 //                                    System.out.println("\nFree text clone: " + first.getJavadocFreeText() + "\n" +
 //                                            " among " + first.getSignature() + " \nand " + second.getSignature());
@@ -548,7 +566,7 @@ public class JavadocClonesFinder {
                 writer.append(';');
                 writer.append("");
                 writer.append(';');
-                writer.append(first.getJavadocFreeText().replaceAll(";", ","));
+                writer.append(StringUtils.replace(first.getJavadocFreeText(),";", ","));
                 writer.append(';');
                 writer.append(String.valueOf(legit));
                 writer.append("\n");
@@ -574,7 +592,7 @@ public class JavadocClonesFinder {
      * @return true if one of the comment must be filtered out
      */
     private static boolean freeTextToFilter(String freeText) {
-        String noBlankFreeText = freeText.trim().replaceAll("\n ", "");
+        String noBlankFreeText = StringUtils.replace(freeText.trim(),"\n ", "");
         return  noBlankFreeText.isEmpty()
                 || noBlankFreeText.equals("{@inheritDoc}")
                 || noBlankFreeText.equals("{@deprecated}");
@@ -644,7 +662,7 @@ public class JavadocClonesFinder {
             }
             String fileName = file.getAbsolutePath();
             String[] unnecessaryPrefix = fileName.split(path);
-            String className = unnecessaryPrefix[1].replaceAll("/",".");
+            String className = StringUtils.replace(unnecessaryPrefix[1],"/",".");
             selectedClassNames.add(className.replace(".java", ""));
         }
         return selectedClassNames;
