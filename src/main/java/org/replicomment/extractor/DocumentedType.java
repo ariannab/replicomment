@@ -61,6 +61,15 @@ public final class DocumentedType {
     return documentedExecutables;
   }
 
+  /**
+   * Returns fields of this {@code DocumentedType}.
+   *
+   * @return fields of this {@code DocumentedType}.
+   */
+  public List<DocumentedField> getDocumentedFields() {
+    return documentedFields;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {

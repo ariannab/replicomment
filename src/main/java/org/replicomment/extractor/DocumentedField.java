@@ -20,4 +20,16 @@ public final class DocumentedField {
         this.typeName = typeName;
         this.javadocFreeText = javadocFreeText;
     }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getTypeName() {
+        return typeName;
+    }
+
+    public String getJavadocFreeText() {
+        return javadocFreeText;
+    }
 }
