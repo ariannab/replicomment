@@ -24,14 +24,16 @@ public final class DocumentedParameter {
   /**
    * Constructs a parameter with the given type and name.
    *
+   *
+   * @param type
    * @param name the name of the parameter
    * @param nullable true if the parameter is nullable, false if nonnull and null if unspecified
    * @throws NullPointerException if type or name is null
    */
-  public DocumentedParameter(Type type, String name, Boolean nullable) {
+  public DocumentedParameter(String type, String name, Boolean nullable) {
     Checks.nonNullParameter(name, "name");
     this.name = name;
-    this.typeName = type.asString();
+    this.typeName = type;
     this.nullable = nullable;
   }
 
@@ -40,9 +42,9 @@ public final class DocumentedParameter {
    *
    * @param name the name of the parameter
    */
-  public DocumentedParameter(Type type, String name) {
-    this(type, name, null);
-  }
+//  public DocumentedParameter(Type type, String name) {
+//    this(type, name, null);
+//  }
 
   /**
    * Returns the name of the parameter.

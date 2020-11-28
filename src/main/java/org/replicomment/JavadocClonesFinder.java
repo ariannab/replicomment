@@ -27,7 +27,7 @@ public class JavadocClonesFinder {
 
     public static void main(String[] args) throws IOException {
         List<String> sourceFolderNames = FileUtils.readLines(new File(
-                JavadocClonesFinder.class.getResource("/fake-source.txt").getPath()));
+                JavadocClonesFinder.class.getResource("/sources.txt").getPath()));
 //                JavadocClonesFinder.class.getResource("/sources.txt").getPath()));
 
         Map<String,String> sourceFolders = new HashMap<>();

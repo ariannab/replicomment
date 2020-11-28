@@ -142,12 +142,12 @@ public final class JavadocExtractor {
       }
       if(sourceCallable instanceof MethodDeclaration){
         documentedExecutables.add(new DocumentedExecutable(
-                sourceCallable.getName(), ((MethodDeclaration) sourceCallable).getType().asString(),
+                sourceCallable.getName().asString(), ((MethodDeclaration) sourceCallable).getType().asString(),
                 sourceCallable.getSignature(), parameters, blockTags, parsedFreeText));
       }else {
 
         documentedExecutables.add(new DocumentedExecutable(
-                sourceCallable.getName(), "", sourceCallable.getSignature(), parameters,
+                sourceCallable.getName().asString(), "", sourceCallable.getSignature(), parameters,
                 blockTags, parsedFreeText));
       }
     }
@@ -378,7 +378,8 @@ public final class JavadocExtractor {
       final com.github.javaparser.ast.body.Parameter parameter = sourceParams.get(i);
       final String paramName = parameter.getName().asString();
       final Boolean nullable = isNullable(parameter);
-      parameters.add(new DocumentedParameter(parameter.getType(), paramName, nullable));
+      String typeName = parameter.getType().toString();
+      parameters.add(new DocumentedParameter(typeName, paramName, nullable));
     }
     return parameters;
   }

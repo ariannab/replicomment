@@ -20,7 +20,7 @@ public final class DocumentedExecutable {
 //  private final Executable executable;
   /** Parameter list. */
   private final List<DocumentedParameter> parameters;
-  private final SimpleName name;
+  private final String name;
 //  private final String returnType;
   private final CallableDeclaration.Signature signature;
   private final String returnType;
@@ -66,12 +66,12 @@ public final class DocumentedExecutable {
     }
 
     /**
-     * Returns an unmodifiable view of the param tags in this method.
+     * Returns the param tags in this method.
      *
-     * @return an unmodifiable view of the param tags in this method
+     * @return the param tags in this method
      */
     public List<ParamTag> paramTags() {
-      return Collections.unmodifiableList(paramTags);
+      return paramTags;
     }
 
     /**
@@ -84,12 +84,13 @@ public final class DocumentedExecutable {
     }
 
     /**
-     * Returns an unmodifiable view of the throws tags in this method.
+     * Returns the throws tags in this method.
      *
-     * @return an unmodifiable view of the throws tags in this method
+     * @return the throws tags in this method
      */
     public List<ThrowsTag> throwsTags() {
-      return Collections.unmodifiableList(throwsTags);
+
+      return throwsTags;
     }
 
     /**
@@ -135,7 +136,7 @@ public final class DocumentedExecutable {
    * @param blockTags the Javadoc comments introduced by block tags (e.g., {@code @param},
  *     {@code @return}) associated with this executable member
    */
-  DocumentedExecutable(SimpleName name, String returnType,
+  DocumentedExecutable(String name, String returnType,
                        CallableDeclaration.Signature signature,
                        List<DocumentedParameter> parameters,
                        BlockTags blockTags, String javadocFreeText) {
