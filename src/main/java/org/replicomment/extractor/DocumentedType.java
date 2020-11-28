@@ -15,6 +15,9 @@ public final class DocumentedType {
   ClassOrInterfaceDeclaration sourceClass;
   /** Constructors and methods of this documented type. */
   private final List<DocumentedExecutable> documentedExecutables;
+
+  /** Fields of this documented type. */
+  private final List<DocumentedField> documentedFields;
   /**
    * Creates a new DocumentedType wrapping the given class and with the given constructors and
    * methods.
@@ -25,13 +28,15 @@ public final class DocumentedType {
    * @throws NullPointerException if either documentedClass or documentedExecutables is null
    */
   DocumentedType(Class<?> documentedClass, ClassOrInterfaceDeclaration sourceClass,
-                 List<DocumentedExecutable> documentedExecutables) {
+                 List<DocumentedExecutable> documentedExecutables,
+                 List<DocumentedField> documentedFields) {
     Checks.nonNullParameter(documentedClass, "documentedClass");
     Checks.nonNullParameter(documentedExecutables, "documentedExecutables");
 //    Checks.nonNullParameter(sourceClass, "sourceClass");
     this.sourceClass = sourceClass;
     this.documentedClass = documentedClass;
     this.documentedExecutables = documentedExecutables;
+    this.documentedFields = documentedFields;
   }
 
   /**

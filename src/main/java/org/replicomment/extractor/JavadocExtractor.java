@@ -9,7 +9,9 @@ import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.EnumDeclaration;
+import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.comments.JavadocComment;
 import com.github.javaparser.ast.nodeTypes.modifiers.NodeWithPrivateModifier;
 import com.github.javaparser.javadoc.Javadoc;
@@ -86,9 +88,10 @@ public final class JavadocExtractor {
       e.printStackTrace();
     }
     if(sourceClass == null ){
-      return new DocumentedType(clazz, null, Collections.EMPTY_LIST);
+      return new DocumentedType(clazz, null, Collections.EMPTY_LIST, Collections.EMPTY_LIST);
     }else {
       final List<CallableDeclaration<?>> sourceExecutables = getExecutables(simpleName, sourceFile, sourceClass);
+      final List<FieldDeclaration> sourceFields = sourceClass.getFields();
 
       if (!sourceExecutables.isEmpty()) {
         // Create the list of ExecutableMembers.
@@ -98,12 +101,34 @@ public final class JavadocExtractor {
         //    log.info(
         //        "Extracting Javadoc information of {} (in source folder {}) done", className, sourcePath);
 
+        List<DocumentedField> documentedFields = new ArrayList<>(sourceFields.size());
+        extractFieldsDoc(sourceFields, documentedFields);
         // Create the documented class.
-
-        return new DocumentedType(clazz, sourceClass, documentedExecutables);
+        return new DocumentedType(clazz, sourceClass, documentedExecutables, documentedFields);
       }
     }
     return null;
+  }
+
+  private void extractFieldsDoc(List<FieldDeclaration> sourceFields,
+                                List<DocumentedField> documentedFields) {
+    for(FieldDeclaration field : sourceFields){
+      Optional<JavadocComment> javadocComment = field.getJavadocComment();
+      String parsedFreeText = "";
+      if (javadocComment.isPresent()) {
+        String freeText = javadocComment.get().getContent();
+        String[] freeTextLines = freeText.split("\n");
+        for (String line : freeTextLines) {
+          String trimmedLine = line.trim();
+          if (trimmedLine.startsWith("* ")) {
+            parsedFreeText = parsedFreeText.concat(trimmedLine.substring(2)) + " ";
+          }
+        }
+        String name = field.getVariables().get(0).getNameAsString();
+        String typeName = field.getVariables().get(0).getTypeAsString();
+        documentedFields.add(new DocumentedField(name, typeName, parsedFreeText));
+      }
+    }
   }
 
   private void extractExecutablesDoc(List<String> classesInPackage,
@@ -123,11 +148,10 @@ public final class JavadocExtractor {
       }
 
       final Optional<JavadocComment> javadocComment = sourceCallable.getJavadocComment();
-      final Optional<Javadoc> javadoc = sourceCallable.getJavadoc();
-      String freeText = "";
+//      final Optional<Javadoc> javadoc = sourceCallable.getJavadoc();
       String parsedFreeText = "";
       if (javadocComment.isPresent()) {
-        freeText = javadocComment.get().getContent();
+        String freeText = javadocComment.get().getContent();
         String[] freeTextLines = freeText.split("\n");
         for (String line : freeTextLines) {
           String trimmedLine = line.trim();
@@ -135,7 +159,7 @@ public final class JavadocExtractor {
                   trimmedLine.startsWith("* @return") || trimmedLine.startsWith("* @throws")) {
             break;
           } else if (trimmedLine.startsWith("* ")) {
-            parsedFreeText = parsedFreeText.concat(trimmedLine.substring(2, trimmedLine.length())) + " ";
+            parsedFreeText = parsedFreeText.concat(trimmedLine.substring(2)) + " ";
           }
 
         }
@@ -461,6 +485,7 @@ public final class JavadocExtractor {
       return Collections.EMPTY_LIST;
     }
   }
+
 
   private ClassOrInterfaceDeclaration getClassDefinition(String className,
                                                          String sourcePath) throws FileNotFoundException {

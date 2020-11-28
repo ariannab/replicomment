@@ -3,7 +3,6 @@ package org.replicomment;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import org.apache.commons.lang3.StringUtils;
-import org.reflections.Reflections;
 import org.replicomment.extractor.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.RegexFileFilter;
@@ -18,7 +17,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.Set;
 
 public class JavadocClonesFinder {
 
@@ -112,23 +110,24 @@ public class JavadocClonesFinder {
 
                 if (documentedType != null) {
 //                    System.out.println("\nIn class " + className + ":");
+
+                    // Retrieve methods in current class.
                     List<DocumentedExecutable> localExecutables = documentedType.getDocumentedExecutables();
                     for (int i = 0; i < localExecutables.size(); i++) {
                         DocumentedExecutable first = localExecutables.get(i);
-                        // Look for local (same-file) doc clones.
-                        clonesSearch(localCloneWriter, className, "", localExecutables, i, first);
+                        // Look for local (same-file) doc clones, method level.
+                        methodLevelClonesSearch(localCloneWriter, className, "", localExecutables, i, first);
 
-                        // Look for hierarchy doc clones.
+                        // Look for hierarchy doc clones, method level.
                         NodeList<ClassOrInterfaceType> extendedTypes =
                                 documentedType.getSourceClass().getExtendedTypes();
                         exploreSourceHierarchy(hierarchyCloneWriter, sourcesFolder,
                                 selectedClassNames, className, extendedTypes, first);
 
-                        // Finally, look for clones cross-file. NB excludes subtypes (addressed above).
+                        // Finally, look for clones cross-file, method level (excluding subtypes, addressed above).
                         // Instead of passing selected selectedClassNames, exclude the supertypes already
                         // FIXME Make replicomment a decent command-line tool and introduce an option to
                         // FIXME explicitly invoke this (we don't want to run cross-file by default).
-
                         if (sourceFolderID.equals("guava") ||
                                 sourceFolderID.equals("log4j") ||
                                 sourceFolderID.equals("spring")) {
@@ -143,6 +142,8 @@ public class JavadocClonesFinder {
                                     className, externalClasses, first);
                         }
                     }
+
+
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -181,7 +182,7 @@ public class JavadocClonesFinder {
                     List<DocumentedExecutable> externalExecutables =
                             documentedExtType.getDocumentedExecutables();
                     for (int j = 0; j < externalExecutables.size(); j++) {
-                        clonesSearch(crossCloneWriter, className, externalClass, externalExecutables, j, first);
+                        methodLevelClonesSearch(crossCloneWriter, className, externalClass, externalExecutables, j, first);
                     }
                 }
             }
@@ -216,7 +217,7 @@ public class JavadocClonesFinder {
                     List<DocumentedExecutable> externalExecutables =
                             documentedSubType.getDocumentedExecutables();
                     for (int j = 0; j < externalExecutables.size(); j++) {
-                        clonesSearch(ewriter, className, externalClass, externalExecutables, j, first);
+                        methodLevelClonesSearch(ewriter, className, externalClass, externalExecutables, j, first);
                     }
                 }
             }
@@ -262,7 +263,7 @@ public class JavadocClonesFinder {
 //                            List<DocumentedExecutable> externalExecutables =
 //                                    documentedSubType.getDocumentedExecutables();
 //                            for (int j = 0; j < externalExecutables.size(); j++) {
-//                                clonesSearch(ewriter, className, externalClass, externalExecutables, j, first);
+//                                methodLevelClonesSearch(ewriter, className, externalClass, externalExecutables, j, first);
 //                            }
 //                        }
 //                    }
@@ -271,9 +272,9 @@ public class JavadocClonesFinder {
 //        }
 //    }
 
-    private static void clonesSearch(FileWriter writer, String className, String externalClass,
-                                     List<DocumentedExecutable> docExecutables, int i,
-                                     DocumentedExecutable first) throws IOException {
+    private static void methodLevelClonesSearch(FileWriter writer, String className, String externalClass,
+                                                List<DocumentedExecutable> docExecutables, int i,
+                                                DocumentedExecutable first) throws IOException {
         for (int j = i + 1; j < docExecutables.size(); j++) {
             // i+1 to avoid comparing A and B and then again B and A
             // (in a positive case, it would count as 2 clones, while
