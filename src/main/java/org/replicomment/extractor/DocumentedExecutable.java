@@ -383,7 +383,7 @@ public final class DocumentedExecutable {
     StringBuilder stringToRet = new StringBuilder();
     stringToRet.append(JavadocExtractor.rawType(this.returnType));
     stringToRet.append(" ");
-    stringToRet.append(this.name.toString());
+    stringToRet.append(this.name);
     stringToRet.append("(");
 
     int count = 0;
@@ -399,7 +399,7 @@ public final class DocumentedExecutable {
     }
     stringToRet.append(")");
 
-    return stringToRet.toString();
+    return String.valueOf(stringToRet);
 
   }
 }
