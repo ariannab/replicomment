@@ -755,6 +755,11 @@ public class JavadocClonesFinder {
                 String cleanSecond = StringUtils.replace(second.returnTag().getComment().getText().trim(),
                         "\n ", "");
                 if (cleanFirst.equals(cleanSecond)) {
+                    // ---------------------------
+                    // -----> VERY NEW HEURISTIC <-----
+                    // ---------------------------
+                    // Reference to {@code this}, where the return type is consistent w/ enclosing type
+                    legit = legit || isReferenceToInstance(cleanFirst, className, extClassName, first, second);
 //              System.out.println("\n@return tag clone: " + first.returnTag().getComment().getText() + "\n" +
 //               " among " + first.getSignature() + " \nand " + second.getSignature());
 
@@ -784,6 +789,31 @@ public class JavadocClonesFinder {
                 }
             }
         }
+    }
+
+    private static boolean isReferenceToInstance(String comment,
+                                                 String className,
+                                                 String extClassName,
+                                                 DocumentedExecutable first,
+                                                 DocumentedExecutable second) {
+        if(!comment.contains("this")) {
+            // FIXME SO naive.
+            return false;
+        }
+
+        if(extClassName.isEmpty()){
+            extClassName = className;
+        }
+
+        String firstType = first.getReturnType();
+        String secondType = second.getReturnType();
+        // Clean possible generic types
+        firstType = JavadocExtractor.rawType(firstType);
+        secondType = JavadocExtractor.rawType(secondType);
+        String fClassType = className.substring(className.lastIndexOf(".")+1);
+        String sClassType = extClassName.substring(extClassName.lastIndexOf(".")+1);
+        return firstType.equals(fClassType) && secondType.equals(sClassType);
+
     }
 
     private static void freeTextCloneCheck(FileWriter writer,
