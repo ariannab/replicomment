@@ -20,8 +20,15 @@ import java.util.Map;
 
 public class JavadocClonesFinder {
 
+    private static final boolean SHOW_LEGIT = false;
     public static final JavadocExtractor javadocExtractor = new JavadocExtractor();
     public static HashMap<String, DocumentedType> documentedTypes = new HashMap<>();
+    private static FileWriter localCloneWriter;
+    private static FileWriter hierarchyCloneWriter;
+    private static FileWriter crossCloneWriter;
+    private static FileWriter fieldCrossCloneWriter;
+    private static FileWriter fieldCloneWriter;
+    private static FileWriter fieldHieCloneWriter;
 
     public static void main(String[] args) throws IOException {
         List<String> sourceFolderNames = FileUtils.readLines(new File(
@@ -36,7 +43,7 @@ public class JavadocClonesFinder {
         }
 
         for (String sourceFolderID : sourceFolders.keySet()) {
-            //Collect all sources
+            // Collect all sources
             String sourceFolder = sourceFolders.get(sourceFolderID);
 
             Collection<File> list = FileUtils.listFiles(
@@ -44,6 +51,7 @@ public class JavadocClonesFinder {
                             sourceFolder),
                     new RegexFileFilter("(.*).java"),
                     TrueFileFilter.INSTANCE);
+            // Collect all the class names in source folder
             List<String> selectedClassNames = getClassesInFolder(list, sourceFolder);
 
             System.out.println("[INFO] Analyzing " + sourceFolder + " ...");
@@ -58,19 +66,12 @@ public class JavadocClonesFinder {
 
         writer.append("Main Class");
         writer.append(';');
-        if (hierarchyClone) {
-            writer.append("Extended Class");
-            writer.append(';');
-        } else if (crossFile) {
-            writer.append("External Class");
-            writer.append(';');
-        }
-        if(!fields) {
+        if (!fields) {
             writer.append("Method1");
             writer.append(';');
             writer.append("Method2");
             writer.append(';');
-        }else{
+        } else {
             writer.append("Field1");
             writer.append(';');
             writer.append("Field2");
@@ -82,7 +83,7 @@ public class JavadocClonesFinder {
         }
         writer.append("Kind");
         writer.append(';');
-        if(!fields) {
+        if (!fields) {
             writer.append("Param1");
             writer.append(';');
             writer.append("Param2");
@@ -91,6 +92,12 @@ public class JavadocClonesFinder {
         writer.append("Cloned text");
         writer.append(';');
         writer.append("Legit?");
+        writer.append(';');
+        if (hierarchyClone) {
+            writer.append("Extended Class");
+        } else if (crossFile) {
+            writer.append("External Class");
+        }
         writer.append('\n');
     }
 
@@ -102,18 +109,11 @@ public class JavadocClonesFinder {
      */
     private static void analyzeClones(String sourcesFolder, String sourceFolderID,
                                       List<String> selectedClassNames) throws IOException {
-        // Prepare results header
-        FileWriter localCloneWriter = new FileWriter("2020_JavadocClones_" + sourceFolderID + ".csv");
-        FileWriter hierarchyCloneWriter = new FileWriter("2020_JavadocClones_h_" + sourceFolderID + ".csv");
-        FileWriter crossCloneWriter = new FileWriter("2020_JavadocClones_cf_" + sourceFolderID + ".csv");
-        FileWriter fieldCloneWriter = new FileWriter("2020_JavadocClones_fields_" + sourceFolderID + ".csv");
-        prepareCSVOutput(localCloneWriter, false, false, false);
-        prepareCSVOutput(hierarchyCloneWriter, true, false, false);
-        prepareCSVOutput(crossCloneWriter, false, true, false);
-        prepareCSVOutput(fieldCloneWriter, true, false, true);
 
-
+        prepareResultsFiles(sourceFolderID);
+        int classIndex = 0;
         for (String className : selectedClassNames) {
+            // For each class name in folder, find comment clones
             try {
                 DocumentedType documentedType;
                 NodeList<ClassOrInterfaceType> extendedTypes = new NodeList<>();
@@ -127,42 +127,47 @@ public class JavadocClonesFinder {
                 }
 
                 if (documentedType != null) {
-
-                    if(documentedType.getSourceClass()!=null) {
-                           extendedTypes = documentedType.getSourceClass().getExtendedTypes();
+                    if (documentedType.getSourceClass() != null) {
+                        // Grab hierarchy of current class (specifically: the supertypes)
+                        extendedTypes = documentedType.getSourceClass().getExtendedTypes();
                     }
 //                    System.out.println("\nIn class " + className + ":");
 
                     // Retrieve methods in current class.
                     List<DocumentedExecutable> localExecutables =
                             documentedType.getDocumentedExecutables();
+
+                    // Following lines manage method-level clones.
                     for (int i = 0; i < localExecutables.size(); i++) {
+                        // Pick ONE local method at time, and forward it to clone search procedures
+                        // to compare its doc against the doc of all other methods, which means,
+                        // the ones that are ahead of it in the source file (from index i):
+                        // We will cover all of them without comparing the same couple of methods twice.
                         DocumentedExecutable firstMethod = localExecutables.get(i);
+
                         // Look for local (same-file) doc clones, method level.
-//                        methodLevelClonesSearch(localCloneWriter, className, "", localExecutables, i, first);
+                        methodLevelClonesSearch(localCloneWriter, className, "",
+                                localExecutables, i, firstMethod);
 
                         // Look for hierarchy doc clones, method level.
-//                        exploreSourceHierarchy(hierarchyCloneWriter, sourcesFolder,
-//                                selectedClassNames, className, extendedTypes, first);
+                        exploreSourceHierarchy(hierarchyCloneWriter, sourcesFolder,
+                                selectedClassNames, className, extendedTypes, firstMethod);
 
-                        // Finally, look for clones cross-file, method level (excluding subtypes, addressed above).
-                        // Instead of passing selected selectedClassNames, exclude the supertypes already
-                        // FIXME Make replicomment a decent command-line tool and introduce an option to
-                        // FIXME explicitly invoke this (we don't want to run cross-file by default).
-//                        if (sourceFolderID.equals("guava") ||
-//                                sourceFolderID.equals("log4j") ||
-//                                sourceFolderID.equals("spring")) {
-////                            // FIXME Ugly trick to skip awfully big projects atm (just pick a few for statistics).
-//                            List<String> externalClasses = new ArrayList<>(selectedClassNames);
-//                            String packageName = className.substring(0, className.lastIndexOf("."));
-//                            for (ClassOrInterfaceType superType : extendedTypes) {
-//                                String externalClassName = packageName + "." + superType.getNameAsString();
-//                                externalClasses.remove(externalClassName);
-//                            }
-//                            crossFileClonesSearch(crossCloneWriter, sourcesFolder,
-//                                    className, externalClasses, first);
-//                        }
+                        // Look for clones cross-file, method level (excluding subtypes, addressed above).
+                        // Avoid comparing C1 and C2 and then C2 and C1 in subsequent iterations, by removing
+                        // classes already explored (the ones before the current index in the list of classes)
+                        List<String> externalClasses = new ArrayList<>(selectedClassNames.subList(classIndex + 1,
+                                selectedClassNames.size()));
+
+                        // Remove the class itself from the pool of "external" classes.
+//                            externalClasses.remove(className);
+
+                        cleanExternalClasses(className, extendedTypes, externalClasses);
+                        crossFileClonesSearch(crossCloneWriter, sourcesFolder,
+                                className, externalClasses, firstMethod);
                     }
+
+                    // Following lines manage fields clones.
                     List<DocumentedField> documentedFields = documentedType.getDocumentedFields();
                     for (int i = 0; i < documentedFields.size(); i++) {
                         DocumentedField firstField = documentedFields.get(i);
@@ -170,47 +175,76 @@ public class JavadocClonesFinder {
                         fieldLevelClonesSearch(fieldCloneWriter, className, "", documentedFields, i, firstField);
 
                         // Look for hierarchy doc clones, field level.
-                        exploreHierarchyFields(fieldCloneWriter, sourcesFolder,
+                        exploreHierarchyFields(fieldHieCloneWriter, sourcesFolder,
                                 selectedClassNames, className, extendedTypes, firstField);
-                        if (sourceFolderID.equals("guava") ||
-                                sourceFolderID.equals("log4j") ||
-                                sourceFolderID.equals("spring")) {
-//                            // FIXME Ugly trick to skip awfully big projects atm (just pick a few for statistics).
-                            List<String> externalClasses = new ArrayList<>(selectedClassNames);
-                            String packageName = className.substring(0, className.lastIndexOf("."));
-                            for (ClassOrInterfaceType superType : extendedTypes) {
-                                String externalClassName = packageName + "." + superType.getNameAsString();
-                                externalClasses.remove(externalClassName);
-                            }
-                            crossFileFieldClonesSearch(fieldCloneWriter, sourcesFolder,
-                                    className, externalClasses, firstField);
-                        }
+
+                        // Look for cross-file field level clones.
+                        List<String> externalClasses = new ArrayList<>(selectedClassNames.subList(classIndex + 1,
+                                selectedClassNames.size()));
+                        cleanExternalClasses(className, extendedTypes, externalClasses);
+                        crossFileFieldClonesSearch(fieldCrossCloneWriter, sourcesFolder,
+                                className, externalClasses, firstField);
                     }
-
-
                 }
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            classIndex++;
         }
+        closeOutputFiles();
 
+    }
+
+    private static void cleanExternalClasses(String className, NodeList<ClassOrInterfaceType> extendedTypes, List<String> externalClasses) {
+        String packageName = className.substring(0, className.lastIndexOf("."));
+        for (ClassOrInterfaceType superType : extendedTypes) {
+            // Remove supertypes of current class from external classes:
+            // we already addressed those clones.
+            String externalClassName = packageName + "." + superType.getNameAsString();
+            externalClasses.remove(externalClassName);
+        }
+    }
+
+    private static void prepareResultsFiles(String sourceFolderID) throws IOException {
+        // Prepare results header
+        localCloneWriter = new FileWriter("2020_JavadocClones_" + sourceFolderID + ".csv");
+        hierarchyCloneWriter = new FileWriter("2020_JavadocClones_h_" + sourceFolderID + ".csv");
+        crossCloneWriter = new FileWriter("2020_JavadocClones_cf_" + sourceFolderID + ".csv");
+
+        fieldCrossCloneWriter = new FileWriter("2020_JavadocClones_fields_cf_" + sourceFolderID + ".csv");
+        fieldHieCloneWriter = new FileWriter("2020_JavadocClones_fields_h_" + sourceFolderID + ".csv");
+        fieldCloneWriter = new FileWriter("2020_JavadocClones_fields_" + sourceFolderID + ".csv");
+
+        prepareCSVOutput(localCloneWriter, false, false, false);
+        prepareCSVOutput(hierarchyCloneWriter, true, false, false);
+        prepareCSVOutput(crossCloneWriter, false, true, false);
+
+        prepareCSVOutput(fieldCloneWriter, false, false, true);
+        prepareCSVOutput(fieldHieCloneWriter, true, false, true);
+        prepareCSVOutput(fieldCrossCloneWriter, false, true, true);
+    }
+
+    private static void closeOutputFiles() throws IOException {
         // Close result files.
         localCloneWriter.flush();
         localCloneWriter.close();
+        hierarchyCloneWriter.flush();
+        hierarchyCloneWriter.close();
+        crossCloneWriter.flush();
+        crossCloneWriter.close();
 
         fieldCloneWriter.flush();
         fieldCloneWriter.close();
-
-        hierarchyCloneWriter.flush();
-        hierarchyCloneWriter.close();
-
-        crossCloneWriter.flush();
-        crossCloneWriter.close();
+        fieldCrossCloneWriter.flush();
+        fieldCrossCloneWriter.close();
+        fieldHieCloneWriter.flush();
+        fieldHieCloneWriter.close();
     }
 
     private static void methodLevelClonesSearch(FileWriter writer, String className, String externalClass,
                                                 List<DocumentedExecutable> docExecutables, int i,
                                                 DocumentedExecutable first) throws IOException {
+
         for (int j = i + 1; j < docExecutables.size(); j++) {
             // i+1 to avoid comparing A and B and then again B and A
             // (in a positive case, it would count as 2 clones, while
@@ -219,6 +253,10 @@ public class JavadocClonesFinder {
 
             String firstJavadoc = first.getWholeJavadocAsString();
             String secondJavadoc = second.getWholeJavadocAsString();
+
+            if (firstJavadoc.trim().isEmpty() || secondJavadoc.trim().isEmpty())
+                continue;
+
 
             String firstSignature = first.toString();
             String secondSignature = second.toString();
@@ -251,10 +289,9 @@ public class JavadocClonesFinder {
                                                int i,
                                                DocumentedField first) throws IOException {
         String firstJavadoc = first.getJavadocFreeText();
-        if(firstJavadoc.isEmpty()){
+        if (firstJavadoc.isEmpty()) {
             return;
         }
-
         for (int j = i + 1; j < documentedFields.size(); j++) {
             // i+1 to avoid comparing A and B and then again B and A
             // (in a positive case, it would count as 2 clones, while
@@ -268,29 +305,34 @@ public class JavadocClonesFinder {
             String firstType = first.getTypeName();
             String secondType = second.getTypeName();
 
-            if(!firstJavadoc.equals(secondJavadoc)){
+            if (!firstJavadoc.equals(secondJavadoc)) {
                 continue;
-            }else{
-                // TODO in case we include external classes, too: && firstName.equals(secondName)
+            } else {
+                // TODO in case we include external classes, too: && firstName.equals(secondName)?
                 boolean legit = firstType.equals(secondType);
-                writer.append(className);
-                writer.append(';');
-                writer.append(extClassName);
-                writer.append(';');
-                writer.append(firstName);
-                writer.append(';');
-                writer.append(secondName);
-                writer.append(';');
-                writer.append(firstType);
-                writer.append(';');
-                writer.append(secondType);
-                writer.append(';');
-                writer.append("Field");
-                writer.append(';');
-                writer.append(StringUtils.replace(firstJavadoc, ";", ","));
-                writer.append(';');
-                writer.append(String.valueOf(legit));
-                writer.append("\n");
+                if (SHOW_LEGIT || !legit) {
+                    writer.append(className);
+                    writer.append(';');
+                    writer.append(firstName);
+                    writer.append(';');
+                    writer.append(secondName);
+                    writer.append(';');
+                    writer.append(firstType);
+                    writer.append(';');
+                    writer.append(secondType);
+                    writer.append(';');
+                    writer.append("Field");
+                    writer.append(';');
+                    writer.append(StringUtils.replace(firstJavadoc, ";", ","));
+                    writer.append(';');
+                    writer.append(String.valueOf(legit));
+                    writer.append(';');
+                    if (!"".equals(extClassName)) {
+                        writer.append(extClassName);
+                        writer.append(';');
+                    }
+                    writer.append("\n");
+                }
             }
 
         }
@@ -301,7 +343,10 @@ public class JavadocClonesFinder {
                                               String className,
                                               List<String> selectedClassNames,
                                               DocumentedExecutable first) throws IOException {
+        // Given an executable (first) of the current class, check its doc against
+        // the doc of each executables of each external class.
         for (String externalClass : selectedClassNames) {
+            // For each external class, grab the documented type...
             DocumentedType documentedExtType;
             if (!externalClass.equals(className)) {
 
@@ -316,10 +361,17 @@ public class JavadocClonesFinder {
                 if (documentedExtType != null) {
                     List<DocumentedExecutable> externalExecutables =
                             documentedExtType.getDocumentedExecutables();
-                    for (int j = 0; j < externalExecutables.size(); j++) {
-                        methodLevelClonesSearch(crossCloneWriter, className,
-                                externalClass, externalExecutables, j, first);
-                    }
+                    // Grab the executables of the external class...
+//                    for (int j = 0; j < externalExecutables.size(); j++) {
+                    // Compare each of it against first.
+                    // FIXME but this looks flawed for cross-file. In same file, each ex. is compared
+                    // FIXME against each other ex. from itself on. Here though we have to compare a single
+                    // FIXME ex. against all the others of an external class, none excluded.
+                    // FIXME methodLevelClonesSearch already iterates over these external executables, we do
+                    // FIXME have to duplicate the cycle here!
+                    methodLevelClonesSearch(crossCloneWriter, className,
+                            externalClass, externalExecutables, -1, first);
+//                    }
                 }
             }
         }
@@ -346,10 +398,10 @@ public class JavadocClonesFinder {
                 if (documentedExtType != null) {
                     List<DocumentedField> externalFields =
                             documentedExtType.getDocumentedFields();
-                    for (int j = 0; j < externalFields.size(); j++) {
-                        fieldLevelClonesSearch(crossCloneWriter, className,
-                                externalClass, externalFields, j, firstField);
-                    }
+//                    for (int j = 0; j < externalFields.size(); j++) {
+                    fieldLevelClonesSearch(crossCloneWriter, className,
+                            externalClass, externalFields, -1, firstField);
+//                    }
                 }
             }
         }
@@ -362,7 +414,7 @@ public class JavadocClonesFinder {
                                                String className,
                                                NodeList<ClassOrInterfaceType> extendedTypes,
                                                DocumentedExecutable first) throws IOException {
-        if(extendedTypes.isEmpty()){
+        if (extendedTypes.isEmpty()) {
             return;
         }
 
@@ -386,9 +438,9 @@ public class JavadocClonesFinder {
                 if (documentedSubType != null) {
                     List<DocumentedExecutable> externalExecutables =
                             documentedSubType.getDocumentedExecutables();
-                    for (int j = 0; j < externalExecutables.size(); j++) {
-                        methodLevelClonesSearch(ewriter, className, externalClass, externalExecutables, j, first);
-                    }
+//                    for (int j = 0; j < externalExecutables.size(); j++) {
+                    methodLevelClonesSearch(ewriter, className, externalClass, externalExecutables, -1, first);
+//                    }
                 }
             }
         }
@@ -400,7 +452,7 @@ public class JavadocClonesFinder {
                                                String className,
                                                NodeList<ClassOrInterfaceType> extendedTypes,
                                                DocumentedField first) throws IOException {
-        if(extendedTypes.isEmpty()){
+        if (extendedTypes.isEmpty()) {
             return;
         }
 
@@ -425,10 +477,10 @@ public class JavadocClonesFinder {
                 if (documentedSubType != null) {
                     List<DocumentedField> externalFields =
                             documentedSubType.getDocumentedFields();
-                    for (int j = 0; j < externalFields.size(); j++) {
-                        fieldLevelClonesSearch(ewriter, className, externalClass,
-                                externalFields, j, first);
-                    }
+//                    for (int j = 0; j < externalFields.size(); j++) {
+                    fieldLevelClonesSearch(ewriter, className, externalClass,
+                            externalFields, -1, first);
+//                    }
                 }
             }
         }
@@ -495,27 +547,30 @@ public class JavadocClonesFinder {
 
     private static void wholeClonePrint(FileWriter writer, String className, String extClassName,
                                         DocumentedExecutable first, DocumentedExecutable second,
-                                        boolean b, String firstJavadoc) throws IOException {
-        writer.append(className);
-        writer.append(';');
-        if (!"".equals(extClassName)) {
-            writer.append(extClassName);
+                                        boolean legit, String firstJavadoc) throws IOException {
+        if (SHOW_LEGIT || !legit) {
+            writer.append(className);
             writer.append(';');
+            writer.append(first.toString());
+            writer.append(';');
+            writer.append(second.toString());
+            writer.append(';');
+            writer.append("Whole");
+            writer.append(';');
+            writer.append("");
+            writer.append(';');
+            writer.append("");
+            writer.append(';');
+            writer.append(StringUtils.replace(firstJavadoc, ";", ","));
+            writer.append(';');
+            writer.append(String.valueOf(legit));
+            writer.append(';');
+            if (!"".equals(extClassName)) {
+                writer.append(extClassName);
+                writer.append(';');
+            }
+            writer.append("\n");
         }
-        writer.append(first.toString());
-        writer.append(';');
-        writer.append(second.toString());
-        writer.append(';');
-        writer.append("Whole");
-        writer.append(';');
-        writer.append("");
-        writer.append(';');
-        writer.append("");
-        writer.append(';');
-        writer.append(StringUtils.replace(firstJavadoc, ";", ","));
-        writer.append(';');
-        writer.append(String.valueOf(b));
-        writer.append("\n");
     }
 
     private static boolean isWholeClone(String first, String second) {
@@ -544,61 +599,65 @@ public class JavadocClonesFinder {
                                             ThrowsTag firstTag,
                                             ThrowsTag secondTag,
                                             boolean legit) throws IOException {
+        if (SHOW_LEGIT || !legit) {
+            Comment comment1 = firstTag.getComment();
+            Comment comment2 = secondTag.getComment();
 
-        Comment comment1 = firstTag.getComment();
-        Comment comment2 = secondTag.getComment();
+            String cleanFirst = StringUtils.replace(comment1.getText().trim(), "\n ", "");
+            String cleanSecond = StringUtils.replace(comment2.getText().trim(), "\n ", "");
 
-        String cleanFirst = StringUtils.replace(comment1.getText().trim(), "\n ", "");
-        String cleanSecond = StringUtils.replace(comment2.getText().trim(), "\n ", "");
+            if (cleanFirst.equals(cleanSecond)) {
 
-        if (cleanFirst.equals(cleanSecond)) {
+                String exceptionNameOne = firstTag.getException();
+                String exceptionNameTwo = secondTag.getException();
+                // Same exception name: could be a legitimate clone
+                legit = legit || exceptionNameOne.equals(exceptionNameTwo);
 
-            String exceptionNameOne = firstTag.getException();
-            String exceptionNameTwo = secondTag.getException();
-            // Same exception name: could be a legitimate clone
-            legit = legit || exceptionNameOne.equals(exceptionNameTwo);
+                String genericConditionEx = "(if|for) (any|an) (error|problem|issue) (that|which)? (occurs|happens|raises)";
+                // The following would be < 3 anyway
+                //            String genericEx = "(upon|on) (error)";
 
-            String genericConditionEx = "(if|for) (any|an) (error|problem|issue) (that|which)? (occurs|happens|raises)";
-            // The following would be < 3 anyway
-            //            String genericEx = "(upon|on) (error)";
+                // Cloned exception will be tolerated ONLY IF:
+                // - same exception name;
+                // - no shorter than 4 words;
+                // - not generic condition ("if an error occurs" etc.)
+                // ---------------------------
+                // -----> NEW HEURISTIC <-----
+                // ---------------------------
+                legit = legit
+                        && comment1.getText().split(" ").length > 3
+                        && !comment1.getText().matches(genericConditionEx);
 
-            // Cloned exception will be tolerated ONLY IF:
-            // - same exception name;
-            // - no shorter than 4 words;
-            // - not generic condition ("if an error occurs" etc.)
-            // ---------------------------
-            // -----> NEW HEURISTIC <-----
-            // ---------------------------
-            legit = legit
-                    && comment1.getText().split(" ").length > 3
-                    && !comment1.getText().matches(genericConditionEx);
-
-            // ...unless it is thrown always
-            legit = legit && !cleanFirst.equals("always");
+                // ...unless it is thrown always
+                legit = legit && !cleanFirst.equals("always");
 
 //          System.out.println("\n@param tag clone: " + firstParamTag.getComment().getText() + "\n" +
 //          " among " + first.getSignature() + " \nand " + second.getSignature());
 
-            writer.append(className);
-            writer.append(';');
-            if (!"".equals(extClassName)) {
-                writer.append(extClassName);
-                writer.append(';');
+                if (SHOW_LEGIT || !legit) {
+                    writer.append(className);
+                    writer.append(';');
+                    writer.append(firstMethod);
+                    writer.append(';');
+                    writer.append(secondMethod);
+                    writer.append(';');
+                    writer.append("@throws");
+                    writer.append(';');
+                    writer.append("");
+                    writer.append(';');
+                    writer.append("");
+                    writer.append(';');
+                    writer.append(StringUtils.replace(comment1.getText(), ";", ","));
+                    writer.append(';');
+                    writer.append(String.valueOf(legit));
+                    writer.append(';');
+                    if (!"".equals(extClassName)) {
+                        writer.append(extClassName);
+                        writer.append(';');
+                    }
+                    writer.append("\n");
+                }
             }
-            writer.append(firstMethod);
-            writer.append(';');
-            writer.append(secondMethod);
-            writer.append(';');
-            writer.append("@throws");
-            writer.append(';');
-            writer.append("");
-            writer.append(';');
-            writer.append("");
-            writer.append(';');
-            writer.append(StringUtils.replace(comment1.getText(), ";", ","));
-            writer.append(';');
-            writer.append(String.valueOf(legit));
-            writer.append("\n");
         }
     }
 
@@ -630,7 +689,6 @@ public class JavadocClonesFinder {
                                         boolean legit,
                                         ParamTag firstTag,
                                         ParamTag secondTag) throws IOException {
-
         Comment comment1 = firstTag.getComment();
         Comment comment2 = secondTag.getComment();
 
@@ -646,29 +704,32 @@ public class JavadocClonesFinder {
         // Same parameter name could mean legitimate clone
         legit = legit || paramName1.equals(paramName2);
 
-        if (cleanFirst.equals(cleanSecond)) {
+        if (SHOW_LEGIT || !legit) {
+            if (cleanFirst.equals(cleanSecond)) {
 //          System.out.println("\n@param tag clone: " + firstParamTag.getComment().getText() + "\n" +
 //          " among " + first.getSignature() + " \nand " + second.getSignature());
-            writer.append(className);
-            writer.append(';');
-            if (!"".equals(extClassName)) {
-                writer.append(extClassName);
+                writer.append(className);
                 writer.append(';');
+                writer.append(first);
+                writer.append(';');
+                writer.append(second);
+                writer.append(';');
+                writer.append("@param");
+                writer.append(';');
+                writer.append(paramType1 + " " + paramName1);
+                writer.append(';');
+                writer.append(paramType2 + " " + paramName2);
+                writer.append(';');
+                writer.append(StringUtils.replace(comment1.getText(), ";", ","));
+                writer.append(';');
+                writer.append(String.valueOf(legit));
+                writer.append(';');
+                if (!"".equals(extClassName)) {
+                    writer.append(extClassName);
+                    writer.append(';');
+                }
+                writer.append("\n");
             }
-            writer.append(first);
-            writer.append(';');
-            writer.append(second);
-            writer.append(';');
-            writer.append("@param");
-            writer.append(';');
-            writer.append(paramType1 + " " + paramName1);
-            writer.append(';');
-            writer.append(paramType2 + " " + paramName2);
-            writer.append(';');
-            writer.append(StringUtils.replace(comment1.getText(), ";", ","));
-            writer.append(';');
-            writer.append(String.valueOf(legit));
-            writer.append("\n");
         }
     }
 
@@ -697,26 +758,29 @@ public class JavadocClonesFinder {
 //              System.out.println("\n@return tag clone: " + first.returnTag().getComment().getText() + "\n" +
 //               " among " + first.getSignature() + " \nand " + second.getSignature());
 
-                    writer.append(className);
-                    writer.append(';');
-                    if (!"".equals(extClassName)) {
-                        writer.append(extClassName);
+                    if (SHOW_LEGIT || !legit) {
+                        writer.append(className);
                         writer.append(';');
+                        writer.append(first.toString());
+                        writer.append(';');
+                        writer.append(second.toString());
+                        writer.append(';');
+                        writer.append("@return");
+                        writer.append(';');
+                        writer.append("");
+                        writer.append(';');
+                        writer.append("");
+                        writer.append(';');
+                        writer.append(StringUtils.replace(firstComment, ";", ","));
+                        writer.append(';');
+                        writer.append(String.valueOf(legit));
+                        writer.append(';');
+                        if (!"".equals(extClassName)) {
+                            writer.append(extClassName);
+                            writer.append(';');
+                        }
+                        writer.append("\n");
                     }
-                    writer.append(first.toString());
-                    writer.append(';');
-                    writer.append(second.toString());
-                    writer.append(';');
-                    writer.append("@return");
-                    writer.append(';');
-                    writer.append("");
-                    writer.append(';');
-                    writer.append("");
-                    writer.append(';');
-                    writer.append(StringUtils.replace(firstComment, ";", ","));
-                    writer.append(';');
-                    writer.append(String.valueOf(legit));
-                    writer.append("\n");
                 }
             }
         }
@@ -728,37 +792,40 @@ public class JavadocClonesFinder {
                                            DocumentedExecutable first,
                                            DocumentedExecutable second,
                                            boolean legit) throws IOException {
-        if (!freeTextToFilter(first.getJavadocFreeText())) {
-            String cleanFirst = first.getJavadocFreeText().trim(); //.replaceAll("\n ", "");
-            String cleanSecond = second.getJavadocFreeText().trim(); //.replaceAll("\n ", "");
+        if (SHOW_LEGIT || !legit) {
+            if (!freeTextToFilter(first.getJavadocFreeText())) {
+                String cleanFirst = first.getJavadocFreeText().trim(); //.replaceAll("\n ", "");
+                String cleanSecond = second.getJavadocFreeText().trim(); //.replaceAll("\n ", "");
 
-            StringUtils.replace(cleanFirst, "\n ", "");
-            StringUtils.replace(cleanSecond, "\n ", "");
+                StringUtils.replace(cleanFirst, "\n ", "");
+                StringUtils.replace(cleanSecond, "\n ", "");
 
-            if (cleanFirst.equals(cleanSecond)) {
+                if (cleanFirst.equals(cleanSecond)) {
 //                                    System.out.println("\nFree text clone: " + first.getJavadocFreeText() + "\n" +
 //                                            " among " + first.getSignature() + " \nand " + second.getSignature());
 
-                writer.append(className);
-                writer.append(';');
-                if (!"".equals(extClassName)) {
-                    writer.append(extClassName);
+                    writer.append(className);
                     writer.append(';');
+                    writer.append(first.toString());
+                    writer.append(';');
+                    writer.append(second.toString());
+                    writer.append(';');
+                    writer.append("Free text");
+                    writer.append(';');
+                    writer.append("");
+                    writer.append(';');
+                    writer.append("");
+                    writer.append(';');
+                    writer.append(StringUtils.replace(first.getJavadocFreeText(), ";", ","));
+                    writer.append(';');
+                    writer.append(String.valueOf(legit));
+                    writer.append(';');
+                    if (!"".equals(extClassName)) {
+                        writer.append(extClassName);
+                        writer.append(';');
+                    }
+                    writer.append("\n");
                 }
-                writer.append(first.toString());
-                writer.append(';');
-                writer.append(second.toString());
-                writer.append(';');
-                writer.append("Free text");
-                writer.append(';');
-                writer.append("");
-                writer.append(';');
-                writer.append("");
-                writer.append(';');
-                writer.append(StringUtils.replace(first.getJavadocFreeText(), ";", ","));
-                writer.append(';');
-                writer.append(String.valueOf(legit));
-                writer.append("\n");
             }
         }
     }
