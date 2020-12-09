@@ -30,6 +30,10 @@ public class JavadocClonesFinder {
     private static FileWriter fieldCloneWriter;
     private static FileWriter fieldHieCloneWriter;
 
+    private enum CONTEXT{
+        INNER, CROSS, HIERARCHY, FIELD
+    }
+
     public static void main(String[] args) throws IOException {
         List<String> sourceFolderNames = FileUtils.readLines(new File(
                 JavadocClonesFinder.class.getResource("/sources.txt").getPath()));
@@ -130,6 +134,20 @@ public class JavadocClonesFinder {
                     if (documentedType.getSourceClass() != null) {
                         // Grab hierarchy of current class (specifically: the supertypes)
                         extendedTypes = documentedType.getSourceClass().getExtendedTypes();
+                        // FIXME what about implemented types (interfaces?)
+
+                        // FIXME can we check if the two classes have parent class in common?
+                        // FIXME ...but I'd avoid it. I'd even avoid the same hierarchy heuristic now.
+                        // FIXME Because I did find real c&p in in hierarchies (implementations)...
+                        // FIXME
+                        // FIXME Reason: the may have same constructor documentation.
+                        // FIXME Alternatives:
+                        // FIXME 1) allow same constructor doc. in package (sounds wild)
+                        // FIXME 2) allow same constructor doc. if:
+                        // FIXME    a) it's only a part (e.g. only free-text) to be copied & it says "constructor" & similar
+                        // FIXME    b) it's a whole comment clone but includes doc. parameters & they match with constructors'
+                        // FIXME       parameters; although we should break the "whole" here, which we currently do not do
+                        // FIXME      (how difficult is that?)
                     }
 //                    System.out.println("\nIn class " + className + ":");
 
@@ -147,7 +165,7 @@ public class JavadocClonesFinder {
 
                         // Look for local (same-file) doc clones, method level.
                         methodLevelClonesSearch(localCloneWriter, className, "",
-                                localExecutables, i, firstMethod);
+                                localExecutables, i, firstMethod, CONTEXT.INNER);
 
                         // Look for hierarchy doc clones, method level.
                         exploreSourceHierarchy(hierarchyCloneWriter, sourcesFolder,
@@ -195,7 +213,9 @@ public class JavadocClonesFinder {
 
     }
 
-    private static void cleanExternalClasses(String className, NodeList<ClassOrInterfaceType> extendedTypes, List<String> externalClasses) {
+    private static void cleanExternalClasses(String className,
+                                             NodeList<ClassOrInterfaceType> extendedTypes,
+                                             List<String> externalClasses) {
         String packageName = className.substring(0, className.lastIndexOf("."));
         for (ClassOrInterfaceType superType : extendedTypes) {
             // Remove supertypes of current class from external classes:
@@ -243,13 +263,15 @@ public class JavadocClonesFinder {
 
     private static void methodLevelClonesSearch(FileWriter writer, String className, String externalClass,
                                                 List<DocumentedExecutable> docExecutables, int i,
-                                                DocumentedExecutable first) throws IOException {
+                                                DocumentedExecutable first,
+                                                CONTEXT cloneContext) throws IOException {
 
         for (int j = i + 1; j < docExecutables.size(); j++) {
             // i+1 to avoid comparing A and B and then again B and A
             // (in a positive case, it would count as 2 clones, while
             //  we actually count 1)
             DocumentedExecutable second = docExecutables.get(j);
+
 
             String firstJavadoc = first.getWholeJavadocAsString();
             String secondJavadoc = second.getWholeJavadocAsString();
@@ -276,10 +298,18 @@ public class JavadocClonesFinder {
             } else {
                 // A whole clone is never legitimate, unless it's overriding (assuming inherited method
                 // behaviour does not change, then doc also doesn't)
-                boolean legit = isOverriding(first.getName(), second.getName(), externalClass);
+                boolean legit = isOverriding(first.getName(), second.getName(), externalClass) ||
+                        isConstructorsInHierarchy(first, second, cloneContext);
                 wholeClonePrint(writer, className, externalClass, first, second, legit, firstJavadoc);
             }
         }
+    }
+
+    private static boolean isConstructorsInHierarchy(DocumentedExecutable first,
+                                                     DocumentedExecutable second,
+                                                     CONTEXT cloneContext) {
+        // Constructors in the same hierarchy allowed to have same doc.
+        return cloneContext.equals(CONTEXT.HIERARCHY) && first.isConstructor() && second.isConstructor();
     }
 
     private static void fieldLevelClonesSearch(FileWriter writer,
@@ -370,7 +400,7 @@ public class JavadocClonesFinder {
                     // FIXME methodLevelClonesSearch already iterates over these external executables, we do
                     // FIXME have to duplicate the cycle here!
                     methodLevelClonesSearch(crossCloneWriter, className,
-                            externalClass, externalExecutables, -1, first);
+                            externalClass, externalExecutables, -1, first, CONTEXT.CROSS);
 //                    }
                 }
             }
@@ -439,7 +469,8 @@ public class JavadocClonesFinder {
                     List<DocumentedExecutable> externalExecutables =
                             documentedSubType.getDocumentedExecutables();
 //                    for (int j = 0; j < externalExecutables.size(); j++) {
-                    methodLevelClonesSearch(ewriter, className, externalClass, externalExecutables, -1, first);
+                    methodLevelClonesSearch(ewriter, className, externalClass,
+                            externalExecutables, -1, first, CONTEXT.HIERARCHY);
 //                    }
                 }
             }

@@ -135,12 +135,10 @@ public final class JavadocExtractor {
                                      List<CallableDeclaration<?>> sourceExecutables,
                                      List<DocumentedExecutable> documentedExecutables) {
     for (CallableDeclaration<?> sourceCallable : sourceExecutables) {
-      // FIXME remove reflection executables, we don't need them. Just check sources. See previous versions of code.
       final List<DocumentedParameter> parameters =
               createDocumentedParameters(
                       sourceCallable.getParameters());
-      BlockTags blockTags =
-              null;
+      BlockTags blockTags;
       try {
         blockTags = createTags(classesInPackage, sourceCallable, parameters);
       } catch (ClassNotFoundException e) {
@@ -152,6 +150,7 @@ public final class JavadocExtractor {
       String parsedFreeText = "";
       if (javadocComment.isPresent()) {
         String freeText = javadocComment.get().getContent();
+
         String[] freeTextLines = freeText.split("\n");
         for (String line : freeTextLines) {
           String trimmedLine = line.trim();
@@ -159,7 +158,9 @@ public final class JavadocExtractor {
                   trimmedLine.startsWith("* @return") || trimmedLine.startsWith("* @throws")) {
             break;
           } else if (trimmedLine.startsWith("* ")) {
-            parsedFreeText = parsedFreeText.concat(trimmedLine.substring(2)) + " ";
+            parsedFreeText = parsedFreeText.concat(trimmedLine.substring(2).trim()) + " ";
+          } else{
+            parsedFreeText = parsedFreeText.concat(trimmedLine.trim()) + " ";
           }
 
         }
