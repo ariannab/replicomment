@@ -30,7 +30,7 @@ public class JavadocClonesFinder {
     private static FileWriter fieldCloneWriter;
     private static FileWriter fieldHieCloneWriter;
 
-    private enum CONTEXT{
+    private enum CONTEXT {
         INNER, CROSS, HIERARCHY, FIELD
     }
 
@@ -299,10 +299,27 @@ public class JavadocClonesFinder {
                 // A whole clone is never legitimate, unless it's overriding (assuming inherited method
                 // behaviour does not change, then doc also doesn't)
                 boolean legit = isOverriding(first.getName(), second.getName(), externalClass) ||
-                        isConstructorsInHierarchy(first, second, cloneContext);
+//                        isConstructorsInHierarchy(first, second, cloneContext)
+                        isGenericConstructorComment(first, second, firstJavadoc);
                 wholeClonePrint(writer, className, externalClass, first, second, legit, firstJavadoc);
             }
         }
+    }
+
+    private static boolean isGenericConstructorComment(DocumentedExecutable first,
+                                                       DocumentedExecutable second,
+                                                       String javadoc) {
+        final String defaultDoc = "Sole constructor. (For invocation by subclass constructors, typically implicit.)";
+        final String subclassesConstructor = "Constructor for use by subclasses.";
+        String genericConstructorDoc = "(sole |default )?constructor\\.?";
+
+        if (first.isConstructor() && second.isConstructor()) {
+            return (javadoc.trim().equals(defaultDoc) ||
+                    javadoc.trim().equals(subclassesConstructor) ||
+                    javadoc.trim().toLowerCase().matches(genericConstructorDoc))
+                    && first.getParameters().isEmpty() && second.getParameters().isEmpty();
+        }
+        return false;
     }
 
     private static boolean isConstructorsInHierarchy(DocumentedExecutable first,
@@ -827,12 +844,12 @@ public class JavadocClonesFinder {
                                                  String extClassName,
                                                  DocumentedExecutable first,
                                                  DocumentedExecutable second) {
-        if(!comment.contains("this")) {
+        if (!comment.contains("this")) {
             // FIXME SO naive.
             return false;
         }
 
-        if(extClassName.isEmpty()){
+        if (extClassName.isEmpty()) {
             extClassName = className;
         }
 
@@ -841,8 +858,8 @@ public class JavadocClonesFinder {
         // Clean possible generic types
         firstType = JavadocExtractor.rawType(firstType);
         secondType = JavadocExtractor.rawType(secondType);
-        String fClassType = className.substring(className.lastIndexOf(".")+1);
-        String sClassType = extClassName.substring(extClassName.lastIndexOf(".")+1);
+        String fClassType = className.substring(className.lastIndexOf(".") + 1);
+        String sClassType = extClassName.substring(extClassName.lastIndexOf(".") + 1);
         return firstType.equals(fClassType) && secondType.equals(sClassType);
 
     }
@@ -853,17 +870,21 @@ public class JavadocClonesFinder {
                                            DocumentedExecutable first,
                                            DocumentedExecutable second,
                                            boolean legit) throws IOException {
-        if (SHOW_LEGIT || !legit) {
-            if (!freeTextToFilter(first.getJavadocFreeText())) {
-                String cleanFirst = first.getJavadocFreeText().trim(); //.replaceAll("\n ", "");
-                String cleanSecond = second.getJavadocFreeText().trim(); //.replaceAll("\n ", "");
 
-                StringUtils.replace(cleanFirst, "\n ", "");
-                StringUtils.replace(cleanSecond, "\n ", "");
+        if (!freeTextToFilter(first.getJavadocFreeText())) {
+            String cleanFirst = first.getJavadocFreeText().trim(); //.replaceAll("\n ", "");
+            String cleanSecond = second.getJavadocFreeText().trim(); //.replaceAll("\n ", "");
 
+            // If free text is the generic description of two constructors, let it be legit (assume rest of the doc
+            // is compensating)
+            legit = legit || isGenericConstructorComment(first, second, cleanFirst);
+
+            if (SHOW_LEGIT || !legit) {
                 if (cleanFirst.equals(cleanSecond)) {
 //                                    System.out.println("\nFree text clone: " + first.getJavadocFreeText() + "\n" +
 //                                            " among " + first.getSignature() + " \nand " + second.getSignature());
+                    StringUtils.replace(cleanFirst, "\n ", "");
+                    StringUtils.replace(cleanSecond, "\n ", "");
 
                     writer.append(className);
                     writer.append(';');

@@ -162,8 +162,8 @@ public final class JavadocExtractor {
           } else{
             parsedFreeText = parsedFreeText.concat(trimmedLine.trim()) + " ";
           }
-
         }
+        parsedFreeText = parsedFreeText.replaceAll("\\*", "").trim();
       }
       if(sourceCallable instanceof MethodDeclaration){
         documentedExecutables.add(new DocumentedExecutable(
