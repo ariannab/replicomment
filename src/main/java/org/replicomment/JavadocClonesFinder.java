@@ -9,18 +9,25 @@ import org.apache.commons.io.filefilter.RegexFileFilter;
 import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.replicomment.util.Reflection;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class JavadocClonesFinder {
 
-    private static final boolean SHOW_LEGIT = false;
+    private static final boolean SHOW_LEGIT = true;
     public static final JavadocExtractor javadocExtractor = new JavadocExtractor();
     public static HashMap<String, DocumentedType> documentedTypes = new HashMap<>();
     private static FileWriter localCloneWriter;
@@ -35,8 +42,12 @@ public class JavadocClonesFinder {
     }
 
     public static void main(String[] args) throws IOException {
-        List<String> sourceFolderNames = FileUtils.readLines(new File(
-                JavadocClonesFinder.class.getResource("/sources.txt").getPath()));
+        InputStream gloveInputStream = JavadocClonesFinder.class.getResourceAsStream("/sources.txt");
+        List<String> sourceFolderNames =
+                new BufferedReader(new InputStreamReader(gloveInputStream,
+                        StandardCharsets.UTF_8)).lines().collect(Collectors.toList());
+
+//        List<String> sourceFolderNames = FileUtils.readLines(new FileWritere(
 //                JavadocClonesFinder.class.getResource("/sources.txt").getPath()));
 
         Map<String, String> sourceFolders = new HashMap<>();
@@ -49,6 +60,8 @@ public class JavadocClonesFinder {
         for (String sourceFolderID : sourceFolders.keySet()) {
             // Collect all sources
             String sourceFolder = sourceFolders.get(sourceFolderID);
+
+            System.out.println("[INFO] Looking for subjects into " + sourceFolderID + " ...");
 
             Collection<File> list = FileUtils.listFiles(
                     new File(
@@ -226,14 +239,15 @@ public class JavadocClonesFinder {
     }
 
     private static void prepareResultsFiles(String sourceFolderID) throws IOException {
+        String dirPrefix = "output/";
         // Prepare results header
-        localCloneWriter = new FileWriter("2020_JavadocClones_" + sourceFolderID + ".csv");
-        hierarchyCloneWriter = new FileWriter("2020_JavadocClones_h_" + sourceFolderID + ".csv");
-        crossCloneWriter = new FileWriter("2020_JavadocClones_cf_" + sourceFolderID + ".csv");
+        localCloneWriter = new FileWriter(dirPrefix + "2020_JavadocClones_" + sourceFolderID + ".csv");
+        hierarchyCloneWriter = new FileWriter(dirPrefix + "2020_JavadocClones_h_" + sourceFolderID + ".csv");
+        crossCloneWriter = new FileWriter(dirPrefix + "2020_JavadocClones_cf_" + sourceFolderID + ".csv");
 
-        fieldCrossCloneWriter = new FileWriter("2020_JavadocClones_fields_cf_" + sourceFolderID + ".csv");
-        fieldHieCloneWriter = new FileWriter("2020_JavadocClones_fields_h_" + sourceFolderID + ".csv");
-        fieldCloneWriter = new FileWriter("2020_JavadocClones_fields_" + sourceFolderID + ".csv");
+        fieldCrossCloneWriter = new FileWriter(dirPrefix + "2020_JavadocClones_fields_cf_" + sourceFolderID + ".csv");
+        fieldHieCloneWriter = new FileWriter(dirPrefix + "2020_JavadocClones_fields_h_" + sourceFolderID + ".csv");
+        fieldCloneWriter = new FileWriter(dirPrefix +"2020_JavadocClones_fields_" + sourceFolderID + ".csv");
 
         prepareCSVOutput(localCloneWriter, false, false, false);
         prepareCSVOutput(hierarchyCloneWriter, true, false, false);
@@ -356,7 +370,7 @@ public class JavadocClonesFinder {
                 continue;
             } else {
                 // TODO in case we include external classes, too: && firstName.equals(secondName)?
-                boolean legit = firstType.equals(secondType);
+                boolean legit = firstName.equals(secondName);
                 if (SHOW_LEGIT || !legit) {
                     writer.append(className);
                     writer.append(';');
