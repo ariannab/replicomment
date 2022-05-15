@@ -42,9 +42,9 @@ public class JavadocClonesFinder {
     }
 
     public static void main(String[] args) throws IOException {
-        InputStream gloveInputStream = JavadocClonesFinder.class.getResourceAsStream("/sources.txt");
+        InputStream resourceAsStream = JavadocClonesFinder.class.getResourceAsStream("/sources.txt");
         List<String> sourceFolderNames =
-                new BufferedReader(new InputStreamReader(gloveInputStream,
+                new BufferedReader(new InputStreamReader(resourceAsStream,
                         StandardCharsets.UTF_8)).lines().collect(Collectors.toList());
 
 //        List<String> sourceFolderNames = FileUtils.readLines(new FileWritere(
@@ -239,15 +239,18 @@ public class JavadocClonesFinder {
     }
 
     private static void prepareResultsFiles(String sourceFolderID) throws IOException {
-        String dirPrefix = "output/";
+        File dirPrefix = new File("output/"+sourceFolderID);
+        if (!dirPrefix.exists()){
+            dirPrefix.mkdirs();
+        }
         // Prepare results header
-        localCloneWriter = new FileWriter(dirPrefix + "2020_JavadocClones_" + sourceFolderID + ".csv");
-        hierarchyCloneWriter = new FileWriter(dirPrefix + "2020_JavadocClones_h_" + sourceFolderID + ".csv");
-        crossCloneWriter = new FileWriter(dirPrefix + "2020_JavadocClones_cf_" + sourceFolderID + ".csv");
+        localCloneWriter = new FileWriter(dirPrefix + "/" + "2020_JavadocClones_" + sourceFolderID + ".csv");
+        hierarchyCloneWriter = new FileWriter(dirPrefix + "/" + "2020_JavadocClones_h_" + sourceFolderID + ".csv");
+        crossCloneWriter = new FileWriter(dirPrefix + "/" + "2020_JavadocClones_cf_" + sourceFolderID + ".csv");
 
-        fieldCrossCloneWriter = new FileWriter(dirPrefix + "2020_JavadocClones_fields_cf_" + sourceFolderID + ".csv");
-        fieldHieCloneWriter = new FileWriter(dirPrefix + "2020_JavadocClones_fields_h_" + sourceFolderID + ".csv");
-        fieldCloneWriter = new FileWriter(dirPrefix +"2020_JavadocClones_fields_" + sourceFolderID + ".csv");
+        fieldCrossCloneWriter = new FileWriter(dirPrefix + "/" + "2020_JavadocClones_fields_cf_" + sourceFolderID + ".csv");
+        fieldHieCloneWriter = new FileWriter(dirPrefix + "/" + "2020_JavadocClones_fields_h_" + sourceFolderID + ".csv");
+        fieldCloneWriter = new FileWriter(dirPrefix + "/" + "2020_JavadocClones_fields_" + sourceFolderID + ".csv");
 
         prepareCSVOutput(localCloneWriter, false, false, false);
         prepareCSVOutput(hierarchyCloneWriter, true, false, false);

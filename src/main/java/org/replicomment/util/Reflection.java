@@ -59,9 +59,9 @@ public class Reflection {
     final List<URL> urls = new ArrayList<>();
     try {
 
-      InputStream gloveInputStream = JavadocClonesFinder.class.getResourceAsStream("/jars.txt");
+      InputStream resourceAsStream = JavadocClonesFinder.class.getResourceAsStream("/jars.txt");
       List<String> jars =
-              new BufferedReader(new InputStreamReader(gloveInputStream,
+              new BufferedReader(new InputStreamReader(resourceAsStream,
                       StandardCharsets.UTF_8)).lines().collect(Collectors.toList());
 
 
